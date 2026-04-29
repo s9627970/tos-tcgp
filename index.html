@@ -1823,7 +1823,7 @@
       try {
         showStatus('準備登入...', '');
         // 改用 Popup 彈出視窗登入
-        const result = await signInWithPopup(auth, provider);
+        const result = await signInWithPopup(auth, googleProvider);
         
         // Popup 成功後，這裡會直接拿到 user
         const user = result.user;
