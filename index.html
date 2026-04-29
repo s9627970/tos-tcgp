@@ -997,7 +997,6 @@
       onAuthStateChanged,
       GoogleAuthProvider,
       getRedirectResult,
-      signInWithPopup,
       signInWithRedirect,
       signOut
     } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js';
@@ -1821,7 +1820,7 @@
     async function handleGoogleLogin() {
       try {
         showStatus('Google 登入中...', '');
-        await signInWithPopup(auth, googleProvider);
+        await signInWithRedirect(auth, googleProvider);
       } catch (err) {
         console.error(err);
         showStatus(err?.message || 'Google 登入失敗。', 'error');
