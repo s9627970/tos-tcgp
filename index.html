@@ -2505,14 +2505,37 @@
         }
 
         const { x: mx, y: my } = getCanvasPoint(e);
-        const endCell = getCellFromPoint(mx, my);
-        isAnimating = true;
         const { i: si, j: sj } = dragStart;
+        
+        // 計算位移向量
+        const dx = mx - dragStartPixel.x;
+        const dy = my - dragStartPixel.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const threshold = cellSize * 0.4; // 觸發滑動的門檻值 (格子寬度的 40%)
+
+        isAnimating = true;
 
         try {
-          if (endCell) {
-            if (Math.abs(si - endCell.i) + Math.abs(sj - endCell.j) === 1) {
-              await board.animatedSwap(dragStart, endCell);
+          // 1. 判斷是否有有效的滑動動作
+          if (dist > threshold) {
+            let targetCell = null;
+            
+            // 根據 dx, dy 判斷滑動的主方向
+            if (Math.abs(dx) > Math.abs(dy)) {
+              // 左右滑動
+              targetCell = { i: si, j: sj + (dx > 0 ? 1 : -1) };
+            } else {
+              // 上下滑動
+              targetCell = { i: si + (dy > 0 ? 1 : -1), j: sj };
+            }
+
+            // 檢查目標格子是否在盤面內
+            const inBounds = targetCell.i >= 0 && targetCell.i < GRID_SIZE && 
+                            targetCell.j >= 0 && targetCell.j < GRID_SIZE;
+
+            if (inBounds) {
+              // 執行鄰近交換
+              await board.animatedSwap(dragStart, targetCell);
               const coinsEarned = await board.resolveAllMatches();
               if (coinsEarned > 0) {
                 await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
@@ -2520,33 +2543,20 @@
               } else {
                 showGame('');
               }
-            }
-          } else {
-            const dx = mx - dragStartPixel.x;
-            const dy = my - dragStartPixel.y;
-            if (sj === 0 && (mx < leftThreshold || dx < -dragRemoveDistance)) {
-              const coinsEarned = await board.removeAndCollapse(si, sj);
-              if (coinsEarned > 0) {
-                await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
-                showGame(`成功製作出 Lv5 × ${coinsEarned}，已獲得 ${coinsEarned * 2} 金幣。`);
-              } else {
-                showGame('');
-              }
-            } else if (sj === GRID_SIZE - 1 && (mx > rightThreshold || dx > dragRemoveDistance)) {
-              const coinsEarned = await board.removeAndCollapse(si, sj);
-              if (coinsEarned > 0) {
-                await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
-                showGame(`成功製作出 Lv5 × ${coinsEarned}，已獲得 ${coinsEarned * 2} 金幣。`);
-              } else {
-                showGame('');
-              }
-            } else if (si === GRID_SIZE - 1 && (my > downThreshold || dy > dragRemoveDistance)) {
-              const coinsEarned = await board.removeAndCollapse(si, sj);
-              if (coinsEarned > 0) {
-                await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
-                showGame(`成功製作出 Lv5 × ${coinsEarned}，已獲得 ${coinsEarned * 2} 金幣。`);
-              } else {
-                showGame('');
+            } else {
+              // 2. 如果滑出邊界，執行原本的「邊界移除」邏輯
+              const isLeft = (sj === 0 && dx < -threshold);
+              const isRight = (sj === GRID_SIZE - 1 && dx > threshold);
+              const isBottom = (si === GRID_SIZE - 1 && dy > threshold);
+
+              if (isLeft || isRight || isBottom) {
+                const coinsEarned = await board.removeAndCollapse(si, sj);
+                if (coinsEarned > 0) {
+                  await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
+                  showGame(`移除 Lv5 成功，獲得 ${coinsEarned * 2} 金幣。`);
+                } else {
+                  showGame('');
+                }
               }
             }
           }
@@ -2555,6 +2565,7 @@
           showGame('操作失敗，請稍後再試。');
         }
 
+        // 重置狀態
         board.selected = null;
         dragStart = null;
         dragStartPixel = null;
