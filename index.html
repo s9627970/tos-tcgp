@@ -1106,7 +1106,6 @@
     let currentUser = null;
     let userUnsub = null;
     let cardPool = [];
-    let cardPoolLoadPromise = null;
     let currentCards = [];
     let backpackFilter = 'all';
     let userData = {
@@ -1122,7 +1121,6 @@
     let selectedWantCardId = '';
     let tradeLeftSearch = '';
     let tradeRightSearch = '';
-    let authBootstrapping = false;
 
     function wait(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
@@ -1506,29 +1504,22 @@
     }
 
     async function loadCardPool() {
-      if (cardPoolLoadPromise) return cardPoolLoadPromise;
-
-      cardPoolLoadPromise = (async () => {
-        try {
-          const res = await fetch(CARD_NAME_FILE, { cache: 'no-store' });
-          if (!res.ok) throw new Error('card_name.txt 讀取失敗');
-          const text = await res.text();
-          cardPool = parseCardText(text);
-        } catch (err) {
-          console.error(err);
-          cardPool = [
-            { id: '0001', name: '莫莉' },
-            { id: '0002', name: '高級水術士莫莉' },
-            { id: '0003', name: '水魔法師莫莉' },
-            { id: '0004', name: '水元素賢者莫莉' },
-            { id: '0005', name: '肖恩' }
-          ];
-        }
-        totalCountText.textContent = String(cardPool.length);
-        return cardPool;
-      })();
-
-      return cardPoolLoadPromise;
+      try {
+        const res = await fetch(CARD_NAME_FILE, { cache: 'no-store' });
+        if (!res.ok) throw new Error('card_name.txt 讀取失敗');
+        const text = await res.text();
+        cardPool = parseCardText(text);
+      } catch (err) {
+        console.error(err);
+        cardPool = [
+          { id: '0001', name: '莫莉' },
+          { id: '0002', name: '高級水術士莫莉' },
+          { id: '0003', name: '水魔法師莫莉' },
+          { id: '0004', name: '水元素賢者莫莉' },
+          { id: '0005', name: '肖恩' }
+        ];
+      }
+      totalCountText.textContent = String(cardPool.length);
     }
 
     function getRewardKey(date = new Date()) {
@@ -1833,15 +1824,6 @@
         await signInWithPopup(auth, googleProvider);
       } catch (err) {
         console.error(err);
-        if (
-          err?.code === 'auth/popup-blocked' ||
-          err?.code === 'auth/popup-closed-by-user' ||
-          err?.code === 'auth/cancelled-popup-request'
-        ) {
-          showStatus('瀏覽器阻擋彈窗，改用重新導向登入...', '');
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        }
         showStatus(err?.message || 'Google 登入失敗。', 'error');
       }
     }
@@ -2546,75 +2528,44 @@
       });
     });
 
-    function clearSignedOutState() {
-      if (userUnsub) userUnsub();
-      if (tradeUnsub) tradeUnsub();
-      userUnsub = null;
-      tradeUnsub = null;
-      tradeRequests = [];
-      userData = { packs: 0, coins: 0, ownedCounts: {}, lastRewardKey: '' };
-      authBootstrapping = false;
-      authView.classList.add('active');
-      appView.classList.remove('active');
-      hideShop();
-      hideGame();
-      hideTradeModal();
-      showStatus('');
-    }
-
-    async function bootstrapAuthenticatedUser(user) {
-      if (!user || authBootstrapping) return;
-      authBootstrapping = true;
-      currentUser = user;
-
-      try {
-        await loadCardPool();
-      } catch (err) {
-        console.error('loadCardPool failed:', err);
-      }
-
-      // 先切換畫面，避免任何同步錯誤時卡在登入頁
-      authView.classList.remove('active');
-      appView.classList.add('active');
-      showView('opening');
-      showStatus('登入成功，正在同步雲端資料...', '');
-
-      try {
-        await createOrLoadUserDoc(user);
-      } catch (err) {
-        console.error('init user doc failed:', err);
-        showStatus(`已登入，但雲端資料同步失敗：${err?.message || '請確認 Firestore 權限與網路連線。'}`, 'error');
-      }
-
-      try {
-        startUserListener(user);
-        startTradeListener();
-      } catch (err) {
-        console.error('start listener failed:', err);
-      }
-
-      showStatus('');
-      authBootstrapping = false;
-    }
-
     onAuthStateChanged(auth, async (user) => {
       currentUser = user || null;
       resetOpeningView();
 
       if (!user) {
-        clearSignedOutState();
+        if (userUnsub) userUnsub();
+        if (tradeUnsub) tradeUnsub();
+        userUnsub = null;
+        tradeUnsub = null;
+        tradeRequests = [];
+        userData = { packs: 0, coins: 0, ownedCounts: {}, lastRewardKey: '' };
+        authView.classList.add('active');
+        appView.classList.remove('active');
+        hideShop();
+        hideGame();
+        hideTradeModal();
+        showStatus('');
         return;
       }
 
-      await bootstrapAuthenticatedUser(user);
+      try {
+        showStatus('同步資料中...', '');
+        await createOrLoadUserDoc(user);
+        startUserListener(user);
+        startTradeListener();
+        authView.classList.remove('active');
+        appView.classList.add('active');
+        showView('opening');
+        showStatus('');
+      } catch (err) {
+        console.error(err);
+        showStatus('初始化使用者資料失敗。', 'error');
+      }
     });
 
     (async function init() {
       try {
-        const redirectResult = await getRedirectResult(auth);
-        if (redirectResult?.user && !currentUser) {
-          await bootstrapAuthenticatedUser(redirectResult.user);
-        }
+        await getRedirectResult(auth);
       } catch (err) {
         console.error('getRedirectResult failed:', err);
       }
