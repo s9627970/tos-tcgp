@@ -1,0 +1,2569 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TOS TCGP</title>
+  <style>
+    :root {
+      --bg: #070b17;
+      --panel: rgba(255,255,255,0.06);
+      --panel-strong: rgba(10, 16, 31, 0.88);
+      --border: rgba(255,255,255,0.12);
+      --text: #ffffff;
+      --muted: rgba(255,255,255,0.68);
+      --cyan: #67e8f9;
+      --blue: #3b82f6;
+      --indigo: #6366f1;
+      --gold: #fbbf24;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      font-family: Arial, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(59,130,246,0.18), transparent 30%),
+        radial-gradient(circle at 80% 20%, rgba(168,85,247,0.16), transparent 25%),
+        radial-gradient(circle at bottom, rgba(14,165,233,0.1), transparent 28%),
+        #070b17;
+      color: var(--text);
+    }
+
+    body { overflow-x: hidden; }
+
+    .grid-overlay {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .burst {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .25s ease;
+      z-index: 1;
+    }
+    .burst.active { opacity: 1; }
+    .burst::before,
+    .burst::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 32%;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      filter: blur(50px);
+    }
+    .burst::before { width: 24rem; height: 24rem; background: rgba(255,255,255,0.2); }
+    .burst::after { width: 32rem; height: 32rem; background: rgba(34,211,238,0.12); }
+
+    .wrap {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      padding: 18px;
+    }
+
+    .view { display: none; min-height: calc(100vh - 36px); width: 100%; }
+    .view.active { display: block; }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .brandline {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .mini-pill {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(12px);
+      font-size: 13px;
+      font-weight: 800;
+      color: rgba(255,255,255,0.9);
+    }
+    .mini-pill strong { color: #fff; }
+
+    .icon-btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: white;
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      transition: transform .18s ease, background .18s ease;
+    }
+    .icon-btn:hover { transform: translateY(-1px); background: rgba(255,255,255,0.1); }
+    .icon-btn.primary { background: linear-gradient(90deg, var(--cyan), var(--blue), var(--indigo)); border-color: transparent; }
+
+    .auth-shell {
+      min-height: calc(100vh - 90px);
+      display: grid;
+      place-items: center;
+    }
+
+    .auth-card {
+      width: min(460px, 100%);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: var(--panel-strong);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      padding: 22px;
+      backdrop-filter: blur(18px);
+    }
+
+    .auth-card h1 { margin: 0 0 8px; font-size: 30px; font-weight: 900; }
+    .auth-card p { margin: 0 0 18px; color: var(--muted); line-height: 1.6; }
+
+    .auth-actions { display: flex; gap: 10px; margin-top: 12px; }
+    .auth-actions button { flex: 1; }
+
+    .status {
+      margin-top: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 24px;
+      color: var(--muted);
+      word-break: break-word;
+    }
+    .status.error { color: #fca5a5; }
+    .status.ok { color: #86efac; }
+
+    .app-shell {
+      display: grid;
+      gap: 18px;
+    }
+
+    .section-card {
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: var(--panel-strong);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.28);
+      padding: 20px;
+      backdrop-filter: blur(18px);
+    }
+
+    .main-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .title-block h2 { margin: 0; font-size: 28px; font-weight: 900; }
+    .title-block .sub { margin-top: 6px; color: var(--muted); font-size: 14px; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .stat {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.05);
+      padding: 14px;
+    }
+    .stat .label { color: var(--muted); font-size: 12px; }
+    .stat .value { margin-top: 8px; font-size: 26px; font-weight: 900; }
+
+    .stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      padding: 8px 0 0;
+    }
+
+    .pack-wrap {
+      position: relative;
+      width: min(82vw, 360px);
+      aspect-ratio: 260 / 360;
+      display: grid;
+      place-items: center;
+    }
+
+    .pack {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-origin: center center;
+      cursor: pointer;
+      filter: drop-shadow(0 24px 40px rgba(0,0,0,0.45));
+      transition: transform .2s ease;
+    }
+    .pack:hover { transform: scale(1.02); }
+    .pack.shake { animation: shake .8s ease-in-out 1; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0) rotate(0deg); }
+      15% { transform: translateX(-2px) rotate(-0.6deg); }
+      30% { transform: translateX(3px) rotate(0.8deg); }
+      45% { transform: translateX(-4px) rotate(-1deg); }
+      60% { transform: translateX(4px) rotate(1deg); }
+      75% { transform: translateX(-2px) rotate(-0.5deg); }
+    }
+    .pack img { width: 100%; height: 100%; object-fit: contain; display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+
+    .tear-glow {
+      position: absolute; inset: 0; opacity: 0; pointer-events: none;
+      background:
+        radial-gradient(circle at center, rgba(255,255,255,0.92), transparent 42%),
+        radial-gradient(circle at center, rgba(103,232,249,0.35), transparent 58%);
+      mix-blend-mode: screen; transition: opacity .25s ease;
+    }
+    .tear-glow.active { opacity: 1; }
+
+    .tear-line {
+      position: absolute; left: 50%; top: 10px; bottom: 10px; width: 4px;
+      transform: translateX(-50%) scaleY(0); transform-origin: top;
+      background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.95), rgba(255,255,255,0));
+      border-radius: 999px; transition: transform .32s ease; filter: blur(.2px);
+    }
+    .pack.open .tear-line { transform: translateX(-50%) scaleY(1); }
+
+    .half-mask { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    .half {
+      position: absolute; top: 0; width: 50%; height: 100%;
+      transition: transform .7s cubic-bezier(.2,.8,.2,1), opacity .7s ease; opacity: 0;
+    }
+    .half.left { left: 0; transform-origin: right center; }
+    .half.right { right: 0; transform-origin: left center; }
+    .pack.open .half { opacity: 1; }
+    .pack.open .half.left { transform: translateX(-120%) rotate(-12deg); }
+    .pack.open .half.right { transform: translateX(120%) rotate(12deg); }
+
+    .open-btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+    .results-title {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 900;
+      color: rgba(255,255,255,0.92);
+    }
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .result-card {
+      min-width: 0;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      overflow: hidden;
+      transform: translateY(24px) scale(.92);
+      opacity: 0;
+      transition: transform .45s ease, opacity .45s ease;
+    }
+    .result-card.show { transform: translateY(0) scale(1); opacity: 1; }
+    .result-card .imgbox { aspect-ratio: 1 / 1; background: rgba(255,255,255,0.05); display: grid; place-items: center; overflow: hidden; }
+    .result-card .imgbox img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .result-card .info { padding: 10px 10px 12px; font-size: 13px; font-weight: 700; line-height: 1.45; text-align: center; word-break: break-word; }
+
+    .backpack-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .filter-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .filter-btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.9);
+      border-radius: 999px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .filter-btn.active { background: linear-gradient(90deg, var(--cyan), var(--blue), var(--indigo)); border-color: transparent; }
+
+    .backpack-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 16px 14px;
+    }
+    .bp-item { text-align: center; }
+    .bp-card {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.04);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+    }
+    .bp-card img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter .2s ease, transform .2s ease; }
+    .bp-card.unowned img { filter: grayscale(1) brightness(.55); }
+    .bp-badge {
+      position: absolute; left: 4px; top: 4px;
+      font-size: 11px; padding: 2px 6px; border-radius: 4px;
+      background: rgba(0,0,0,0.54); color: #f5d36d; font-weight: 800;
+    }
+    .bp-no { margin-top: 4px; color: rgba(255,255,255,0.75); font-size: 14px; font-weight: 700; }
+    .bp-name { margin-top: 2px; color: rgba(255,255,255,0.92); font-size: 13px; font-weight: 700; line-height: 1.25; min-height: 34px; }
+
+    .empty-state {
+      margin-top: 10px;
+      color: var(--muted);
+      text-align: center;
+      padding: 16px 0 2px;
+      font-size: 14px;
+    }
+
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+    .modal.hidden { display: none; }
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.58);
+      backdrop-filter: blur(4px);
+    }
+    .modal-card {
+      position: relative;
+      width: min(520px, 100%);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: var(--panel-strong);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+      padding: 20px;
+      backdrop-filter: blur(18px);
+      z-index: 1;
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .modal-head h3 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 900;
+    }
+    .modal-head p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .modal-close { flex: 0 0 auto; }
+    .shop-item {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .shop-item-name {
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+    .shop-item-desc {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .shop-item-action {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-end;
+      min-width: 160px;
+    }
+    .shop-price {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--gold);
+    }
+
+    .game-modal-card {
+      width: min(980px, 100%);
+    }
+    .game-tip {
+      margin: -2px 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    #mergeGameCanvas {
+      width: 100%;
+      height: min(68vh, 720px);
+      display: block;
+      border-radius: 18px;
+      background: #f5f5f5;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+      touch-action: none;
+    }
+    .game-modal-head p strong {
+      color: #fff;
+    }
+    @media (max-width: 680px) {
+      #mergeGameCanvas { height: 78vh; min-height: 560px; }
+      .trade-list { grid-template-columns: 1fr; }
+      .trade-split-grid { grid-template-columns: 1fr; }
+      .trade-select-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    .trade-hall-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .trade-hall-title h3 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 900;
+    }
+    .trade-hall-title p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .trade-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .trade-summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .trade-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .trade-card {
+      position: relative;
+      border: 1px solid rgba(255,255,255,0.12);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04)),
+        rgba(255,255,255,0.05);
+      border-radius: 22px;
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+      overflow: hidden;
+    }
+    .trade-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(103,232,249,0.12), transparent 38%);
+      pointer-events: none;
+    }
+    .trade-card:not(.trade-card-own) {
+      cursor: pointer;
+    }
+    .trade-card:not(.trade-card-own):hover {
+      transform: translateY(-2px);
+      border-color: rgba(103,232,249,0.32);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)),
+        rgba(255,255,255,0.07);
+      box-shadow: 0 14px 36px rgba(0,0,0,0.26);
+    }
+    .trade-card-own {
+      border-color: rgba(251,191,36,0.26);
+      box-shadow: inset 0 0 0 1px rgba(251,191,36,0.08), 0 10px 30px rgba(0,0,0,0.18);
+    }
+    .trade-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .trade-owner {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+    }
+    .trade-owner strong {
+      font-size: 15px;
+      word-break: break-all;
+      line-height: 1.35;
+    }
+    .trade-owner span {
+      color: var(--muted);
+      font-size: 12px;
+      word-break: break-all;
+    }
+    .trade-badge {
+      font-size: 11px;
+      font-weight: 900;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(103,232,249,0.12);
+      color: #bff7ff;
+      border: 1px solid rgba(103,232,249,0.22);
+      white-space: nowrap;
+    }
+    .trade-badge.mine {
+      background: rgba(251,191,36,0.12);
+      color: #fde68a;
+      border-color: rgba(251,191,36,0.24);
+    }
+    .trade-pair {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+    .trade-box {
+      width: 100%;
+      justify-self: stretch;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 18px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.04);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+    .trade-box .imgbox {
+      aspect-ratio: 1 / 1;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,0.04);
+      padding: 8px;
+    }
+    .trade-box .imgbox img {
+      width: 58%;
+      height: 58%;
+      max-width: 160px;
+      max-height: 160px;
+      object-fit: contain;
+      display: block;
+    }
+    .trade-box .label {
+      padding: 10px 10px 12px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.45;
+      color: rgba(255,255,255,0.92);
+    }
+    .trade-arrow {
+      display: grid;
+      place-items: center;
+      min-width: 28px;
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--gold);
+      padding: 0 2px;
+    }
+    .trade-card-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .trade-card-footer .mini-pill {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    .trade-card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .trade-empty {
+      margin-top: 6px;
+    }
+    .trade-modal-card {
+      width: min(1140px, 100%);
+    }
+    .trade-modal-summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: -4px 0 14px;
+    }
+    .trade-split-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .trade-side {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.05);
+      padding: 14px;
+      min-width: 0;
+    }
+    .trade-side-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .trade-side-head h4 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .trade-side-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .trade-search {
+      width: 100%;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(0,0,0,0.16);
+      color: #fff;
+      padding: 11px 12px;
+      font-size: 14px;
+      outline: none;
+    }
+    .trade-search::placeholder { color: rgba(255,255,255,0.45); }
+    .trade-select-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      max-height: min(60vh, 600px);
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .trade-choice {
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+      min-width: 0;
+    }
+    .trade-choice:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.07);
+    }
+    .trade-choice.active {
+      border-color: rgba(103,232,249,0.8);
+      box-shadow: 0 0 0 2px rgba(103,232,249,0.12);
+    }
+    .trade-choice .thumb {
+      aspect-ratio: 1 / 1;
+      background: rgba(255,255,255,0.05);
+    }
+    .trade-choice .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .trade-choice .meta {
+      padding: 8px;
+      text-align: center;
+    }
+    .trade-choice .meta .id {
+      font-size: 11px;
+      color: rgba(255,255,255,0.68);
+    }
+    .trade-choice .meta .name {
+      margin-top: 4px;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    .trade-choice .meta .count {
+      margin-top: 4px;
+      font-size: 11px;
+      color: #fde68a;
+      font-weight: 800;
+    }
+    .trade-picked {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      min-height: 20px;
+    }
+    .trade-modal-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .trade-confirm-card {
+      width: min(560px, 100%);
+    }
+    .trade-confirm-text {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.05);
+      padding: 16px;
+      margin-top: 8px;
+      line-height: 1.65;
+      color: rgba(255,255,255,0.9);
+      white-space: pre-line;
+    }
+    .trade-confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 1100px) {
+      .results-grid, .backpack-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .stats-grid { grid-template-columns: 1fr; }
+      .trade-list { grid-template-columns: 1fr; }
+      .trade-split-grid { grid-template-columns: 1fr; }
+      .trade-select-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      .results-grid, .backpack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .auth-actions { flex-direction: column; }
+      .trade-select-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 460px) {
+      .results-grid, .backpack-grid { grid-template-columns: 1fr; }
+      .pack-wrap { width: min(86vw, 300px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-overlay"></div>
+  <div id="burst" class="burst"></div>
+
+  <div class="wrap">
+    <div id="authView" class="view active">
+      <div class="auth-shell">
+        <div class="auth-card">
+          <h1>TOS TCGP</h1>
+          <p>請使用 Google 帳號登入，登入後才可以抽卡。<br>且每天 GMT+8 早上 5 點會自動發放 5 包卡包。</p>
+
+          <div class="auth-actions">
+            <button class="icon-btn primary" id="googleLoginBtn">使用 Google 登入</button>
+          </div>
+
+          <div id="authStatus" class="status"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="appView" class="view">
+      <div class="topbar">
+        <div class="brandline">
+          <div class="mini-pill">剩餘卡包：<strong id="packCountText">0</strong></div>
+          <div class="mini-pill">金幣：<strong id="coinCountText">0</strong></div>
+          <div class="mini-pill">帳號：<strong id="userEmailText">-</strong></div>
+        </div>
+        <div class="brandline">
+          <button class="icon-btn" id="toOpeningBtn">開卡包</button>
+          <button class="icon-btn" id="toBackpackBtn">背包</button>
+          <button class="icon-btn" id="tradeHallBtn">交易大廳</button>
+          <button class="icon-btn" id="shopBtn">商店</button>
+          <button class="icon-btn" id="earnBtn">賺金幣</button>
+          <button class="icon-btn" id="logoutBtn">登出</button>
+        </div>
+      </div>
+
+      <div id="openingView" class="section-card">
+        <div class="stage">
+          <div class="pack-wrap">
+            <div id="pack" class="pack" title="點擊開啟卡包">
+              <img src="pack.png" alt="pack" onerror="this.style.display='none';" />
+              <div class="tear-glow" id="tearGlow"></div>
+              <div class="tear-line"></div>
+              <div class="half-mask">
+                <div class="half left"></div>
+                <div class="half right"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="open-btn-row">
+            <button class="icon-btn primary" id="openPackBtn">開啟卡包</button>
+          </div>
+
+          <div style="width:100%;">
+            <div class="results-title">抽到的卡片</div>
+            <div id="resultsGrid" class="results-grid"></div>
+            <div id="resultsEmpty" class="empty-state">尚未開啟卡包</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="backpackView" class="section-card" style="display:none;">
+        <div class="backpack-head">
+          <div class="mini-pill">已擁有 <strong id="ownedCountText">0</strong> / <strong id="totalCountText">0</strong></div>
+          <div class="filter-row">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="unowned">尚未擁有</button>
+            <button class="filter-btn" data-filter="owned">已擁有</button>
+          </div>
+        </div>
+        <div id="backpackGrid" class="backpack-grid"></div>
+        <div id="backpackEmpty" class="empty-state" style="display:none;">沒有符合條件的卡片</div>
+      </div>
+
+      <div id="tradeHallView" class="section-card" style="display:none;">
+        <div class="trade-hall-head">
+          <div class="trade-hall-title">
+            <h3>交易大廳</h3>
+            <p>建立自己的交易請求，或瀏覽所有玩家的公開交易。</p>
+          </div>
+          <div class="trade-actions">
+            <div class="mini-pill">我的請求：<strong id="myTradeCountText">0</strong></div>
+            <div class="mini-pill">全部請求：<strong id="allTradeCountText">0</strong></div>
+            <button class="icon-btn primary" id="addTradeBtn" type="button">新增交易</button>
+          </div>
+        </div>
+        <div class="trade-summary">
+          <div class="mini-pill">已擁有卡種：<strong id="ownedCountText2">0</strong></div>
+          <div class="mini-pill">總卡種：<strong id="totalCountText2">0</strong></div>
+        </div>
+        <div id="tradeRequestList" class="trade-list"></div>
+        <div id="tradeRequestEmpty" class="empty-state trade-empty" style="display:none;">目前沒有交易請求</div>
+      </div>
+
+  <div id="shopModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="shopBackdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="shopTitle">商店</h3>
+          <p>花費 10 個金幣購買 1 包卡包。</p>
+        </div>
+        <button class="icon-btn modal-close" id="closeShopBtn" type="button">關閉</button>
+      </div>
+      <div class="shop-item">
+        <div class="shop-item-info">
+          <div class="shop-item-name">卡包</div>
+          <div class="shop-item-desc">購買後可立即開啟一次。</div>
+        </div>
+        <div class="shop-item-action">
+          <div class="shop-price">10 金幣</div>
+          <button class="icon-btn primary" id="buyPackBtn" type="button">購買卡包</button>
+        </div>
+      </div>
+      <div id="shopStatus" class="status"></div>
+    </div>
+  </div>
+  <div id="earnModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="earnBackdrop"></div>
+    <div class="modal-card game-modal-card" role="dialog" aria-modal="true" aria-labelledby="earnTitle">
+      <div class="modal-head game-modal-head">
+        <div>
+          <h3 id="earnTitle">賺金幣</h3>
+          <p>目前金幣：<strong id="gameCoinText">0</strong>｜完成 Lv5 合成可獲得 2 金幣。</p>
+        </div>
+        <button class="icon-btn modal-close" id="closeEarnBtn" type="button">關閉</button>
+      </div>
+      <div class="game-tip">拖曳相鄰方塊交換；連成 3 個以上同屬性同等級即可合成。從左右/下方邊緣往外拖，可以移除邊界方塊。</div>
+      <canvas id="mergeGameCanvas"></canvas>
+      <div id="gameStatus" class="status"></div>
+    </div>
+  </div>
+
+  <div id="tradeModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="tradeBackdrop"></div>
+    <div class="modal-card trade-modal-card" role="dialog" aria-modal="true" aria-labelledby="tradeTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="tradeTitle">新增交易請求</h3>
+          <p>左邊選擇你要送出的卡，只會顯示你已擁有的卡。右邊選擇你想收到的卡，兩邊都可以搜尋。</p>
+        </div>
+        <button class="icon-btn modal-close" id="closeTradeBtn" type="button">關閉</button>
+      </div>
+      <div class="trade-modal-summary">
+        <div class="mini-pill">目前金幣：<strong id="tradeCoinText">0</strong></div>
+        <div class="mini-pill">送出：<strong id="selectedGiveText">未選擇</strong></div>
+        <div class="mini-pill">得到：<strong id="selectedWantText">未選擇</strong></div>
+      </div>
+      <div class="trade-split-grid">
+        <div class="trade-side">
+          <div class="trade-side-head">
+            <div>
+              <h4>想送出的卡</h4>
+              <p>只顯示你目前持有的卡片。</p>
+            </div>
+          </div>
+          <input id="tradeGiveSearch" class="trade-search" type="text" placeholder="搜尋卡號或名稱" />
+          <div id="tradeGiveGrid" class="trade-select-grid"></div>
+          <div id="tradeGivePicked" class="trade-picked">尚未選擇送出的卡</div>
+        </div>
+        <div class="trade-side">
+          <div class="trade-side-head">
+            <div>
+              <h4>想得到的卡</h4>
+              <p>可從全部卡片中搜尋選擇。</p>
+            </div>
+          </div>
+          <input id="tradeWantSearch" class="trade-search" type="text" placeholder="搜尋卡號或名稱" />
+          <div id="tradeWantGrid" class="trade-select-grid"></div>
+          <div id="tradeWantPicked" class="trade-picked">尚未選擇想得到的卡</div>
+        </div>
+      </div>
+      <div class="trade-modal-actions">
+        <div id="tradeModalStatus" class="status"></div>
+        <button class="icon-btn primary" id="saveTradeBtn" type="button">發布交易請求</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tradeConfirmModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="tradeConfirmBackdrop"></div>
+    <div class="modal-card trade-confirm-card" role="dialog" aria-modal="true" aria-labelledby="tradeConfirmTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="tradeConfirmTitle">確認進行交易</h3>
+          <p id="tradeConfirmDesc">按下確認後，系統會檢查你是否仍持有要交換的卡片。</p>
+        </div>
+        <button class="icon-btn modal-close" id="closeTradeConfirmBtn" type="button">關閉</button>
+      </div>
+      <div id="tradeConfirmText" class="trade-confirm-text"></div>
+      <div class="trade-confirm-actions">
+        <button class="icon-btn" id="cancelTradeConfirmBtn" type="button">取消</button>
+        <button class="icon-btn primary" id="confirmTradeBtn" type="button">確認交易</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js';
+    import {
+      getAuth,
+      onAuthStateChanged,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut
+    } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js';
+    import {
+      getFirestore,
+      doc,
+      collection,
+      query,
+      orderBy,
+      addDoc,
+      deleteDoc,
+      onSnapshot,
+      runTransaction
+    } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js';
+    import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-functions.js';
+
+    // TODO: 換成你自己的 Firebase 專案設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyCodZs4kP6L-Ae4JYMhxbCPWKWaOq-C2C0",
+      authDomain: "tos-packgame.firebaseapp.com",
+      projectId: "tos-packgame",
+      storageBucket: "tos-packgame.firebasestorage.app",
+      messagingSenderId: "1074650328112",
+      appId: "1:1074650328112:web:8beea3187125ca4d4ad1f5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const functionsInstance = getFunctions(app);
+    const acceptTradeCallable = httpsCallable(functionsInstance, 'acceptTrade');
+    const googleProvider = new GoogleAuthProvider();
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+    const CARD_IMG_BASE = 'https://d1h5mn9kk900cf.cloudfront.net/toswebsites/gallery/icons/';
+    const CARD_NAME_FILE = 'card_name.txt';
+    const USER_COLLECTION = 'users';
+
+    const authView = document.getElementById('authView');
+    const appView = document.getElementById('appView');
+    const openingView = document.getElementById('openingView');
+    const backpackView = document.getElementById('backpackView');
+    const pack = document.getElementById('pack');
+    const tearGlow = document.getElementById('tearGlow');
+    const burst = document.getElementById('burst');
+    const resultsGrid = document.getElementById('resultsGrid');
+    const resultsEmpty = document.getElementById('resultsEmpty');
+    const backpackGrid = document.getElementById('backpackGrid');
+    const backpackEmpty = document.getElementById('backpackEmpty');
+    const packCountText = document.getElementById('packCountText');
+    const coinCountText = document.getElementById('coinCountText');
+    const userEmailText = document.getElementById('userEmailText');
+    const ownedCountText = document.getElementById('ownedCountText');
+    const totalCountText = document.getElementById('totalCountText');
+    const authStatus = document.getElementById('authStatus');
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const shopBtn = document.getElementById('shopBtn');
+    const earnBtn = document.getElementById('earnBtn');
+    const tradeHallBtn = document.getElementById('tradeHallBtn');
+    const openPackBtn = document.getElementById('openPackBtn');
+    const toBackpackBtn = document.getElementById('toBackpackBtn');
+    const toOpeningBtn = document.getElementById('toOpeningBtn');
+    const shopModal = document.getElementById('shopModal');
+    const shopBackdrop = document.getElementById('shopBackdrop');
+    const closeShopBtn = document.getElementById('closeShopBtn');
+    const buyPackBtn = document.getElementById('buyPackBtn');
+    const shopStatus = document.getElementById('shopStatus');
+    const earnModal = document.getElementById('earnModal');
+    const earnBackdrop = document.getElementById('earnBackdrop');
+    const closeEarnBtn = document.getElementById('closeEarnBtn');
+    const gameCoinText = document.getElementById('gameCoinText');
+    const gameStatus = document.getElementById('gameStatus');
+    const mergeGameCanvas = document.getElementById('mergeGameCanvas');
+    const tradeHallView = document.getElementById('tradeHallView');
+    const addTradeBtn = document.getElementById('addTradeBtn');
+    const tradeRequestList = document.getElementById('tradeRequestList');
+    const tradeRequestEmpty = document.getElementById('tradeRequestEmpty');
+    const myTradeCountText = document.getElementById('myTradeCountText');
+    const allTradeCountText = document.getElementById('allTradeCountText');
+    const ownedCountText2 = document.getElementById('ownedCountText2');
+    const totalCountText2 = document.getElementById('totalCountText2');
+    const tradeModal = document.getElementById('tradeModal');
+    const tradeBackdrop = document.getElementById('tradeBackdrop');
+    const closeTradeBtn = document.getElementById('closeTradeBtn');
+    const saveTradeBtn = document.getElementById('saveTradeBtn');
+    const tradeModalStatus = document.getElementById('tradeModalStatus');
+    const tradeCoinText = document.getElementById('tradeCoinText');
+    const selectedGiveText = document.getElementById('selectedGiveText');
+    const selectedWantText = document.getElementById('selectedWantText');
+    const tradeGiveSearch = document.getElementById('tradeGiveSearch');
+    const tradeWantSearch = document.getElementById('tradeWantSearch');
+    const tradeGiveGrid = document.getElementById('tradeGiveGrid');
+    const tradeWantGrid = document.getElementById('tradeWantGrid');
+    const tradeGivePicked = document.getElementById('tradeGivePicked');
+    const tradeWantPicked = document.getElementById('tradeWantPicked');
+    const tradeConfirmModal = document.getElementById('tradeConfirmModal');
+    const tradeConfirmBackdrop = document.getElementById('tradeConfirmBackdrop');
+    const closeTradeConfirmBtn = document.getElementById('closeTradeConfirmBtn');
+    const cancelTradeConfirmBtn = document.getElementById('cancelTradeConfirmBtn');
+    const confirmTradeBtn = document.getElementById('confirmTradeBtn');
+    const tradeConfirmText = document.getElementById('tradeConfirmText');
+    const filterBtns = Array.from(document.querySelectorAll('.filter-btn'));
+
+    let opening = false;
+    let currentUser = null;
+    let userUnsub = null;
+    let cardPool = [];
+    let currentCards = [];
+    let backpackFilter = 'all';
+    let userData = {
+      packs: 0,
+      coins: 0,
+      ownedCounts: {},
+      lastRewardKey: ''
+    };
+    let tradeUnsub = null;
+    let tradeRequests = [];
+    let selectedGiveCardId = '';
+    let pendingTradeRequest = null;
+    let selectedWantCardId = '';
+    let tradeLeftSearch = '';
+    let tradeRightSearch = '';
+
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function showStatus(message, type = '') {
+      authStatus.textContent = message;
+      authStatus.className = 'status' + (type ? ` ${type}` : '');
+    }
+
+    function showView(name) {
+      openingView.style.display = name === 'opening' ? 'block' : 'none';
+      backpackView.style.display = name === 'backpack' ? 'block' : 'none';
+      tradeHallView.style.display = name === 'trade' ? 'block' : 'none';
+    }
+
+
+    function showShop(message = '') {
+      shopStatus.textContent = message;
+      shopStatus.className = 'status';
+      shopModal.classList.remove('hidden');
+      shopModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideShop() {
+      shopModal.classList.add('hidden');
+      shopModal.setAttribute('aria-hidden', 'true');
+      shopStatus.textContent = '';
+      shopStatus.className = 'status';
+    }
+
+    function showGame(message = '') {
+      gameStatus.textContent = message;
+      gameStatus.className = 'status';
+      earnModal.classList.remove('hidden');
+      earnModal.setAttribute('aria-hidden', 'false');
+      mergeGame.resize();
+      mergeGame.setVisible(true);
+    }
+
+    function hideGame() {
+      earnModal.classList.add('hidden');
+      earnModal.setAttribute('aria-hidden', 'true');
+      gameStatus.textContent = '';
+      gameStatus.className = 'status';
+      mergeGame.setVisible(false);
+    }
+
+    function showTradeModal(message = '') {
+      tradeModalStatus.textContent = message;
+      tradeModalStatus.className = 'status';
+      tradeModal.classList.remove('hidden');
+      tradeModal.setAttribute('aria-hidden', 'false');
+      tradeCoinText.textContent = String(userData.coins || 0);
+      tradeGiveSearch.value = tradeLeftSearch;
+      tradeWantSearch.value = tradeRightSearch;
+      renderTradeModal();
+    }
+
+    function hideTradeModal() {
+      tradeModal.classList.add('hidden');
+      tradeModal.setAttribute('aria-hidden', 'true');
+      tradeModalStatus.textContent = '';
+      tradeModalStatus.className = 'status';
+    }
+
+    function showTradeConfirmModal(req) {
+      if (!req) return;
+      pendingTradeRequest = req;
+      const giveCard = findCardById(req.giveCardId);
+      const wantCard = findCardById(req.wantCardId);
+      tradeConfirmText.textContent = `你要用 1 張 ${wantCard ? `${wantCard.id} ${wantCard.name}` : (req.wantCardId || '')}
+交換對方的 1 張 ${giveCard ? `${giveCard.id} ${giveCard.name}` : (req.giveCardId || '')} 嗎？
+
+按下確認後會檢查你目前是否還持有該卡。`;
+      tradeConfirmModal.classList.remove('hidden');
+      tradeConfirmModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideTradeConfirmModal() {
+      tradeConfirmModal.classList.add('hidden');
+      tradeConfirmModal.setAttribute('aria-hidden', 'true');
+      pendingTradeRequest = null;
+      tradeConfirmText.textContent = '';
+    }
+
+    async function confirmTradeFromModal() {
+      const req = pendingTradeRequest;
+      if (!req) return;
+      hideTradeConfirmModal();
+      await acceptTradeRequest(req);
+    }
+
+    function normalizeText(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function findCardById(cardId) {
+      return cardPool.find(card => card.id === cardId) || null;
+    }
+
+    function getCardDisplayName(cardId) {
+      const card = findCardById(cardId);
+      return card ? `${card.id} ${card.name}` : cardId;
+    }
+
+    function formatTradeDate(ts) {
+      if (!ts) return '時間未知';
+      try {
+        return new Date(ts).toLocaleString('zh-TW', { hour12: false });
+      } catch {
+        return '時間未知';
+      }
+    }
+
+    async function acceptTradeRequest(req) {
+      if (!currentUser) {
+        showStatus('請先登入。', 'error');
+        return;
+      }
+
+      const tradeOwnerUid = req.ownerUid || req.uid || '';
+      if (!tradeOwnerUid || tradeOwnerUid === currentUser.uid) {
+        showStatus('這筆交易無法接受。', 'error');
+        return;
+      }
+
+      if (!req.id) {
+        showStatus('交易資料異常。', 'error');
+        return;
+      }
+
+      try {
+        const result = await acceptTradeCallable({ tradeId: req.id });
+        const data = result?.data || {};
+        if (!data.ok) {
+          throw new Error(data.message || '交易失敗。');
+        }
+
+        showStatus('交易成功！', 'ok');
+        renderTradeHall();
+      } catch (err) {
+        console.error(err);
+        const message = err?.data?.message || err?.message || '交易失敗，請稍後再試。';
+        showStatus(message, 'error');
+      }
+    }
+
+    function renderTradeHall() {
+      ownedCountText2.textContent = String(getOwnedCount());
+      totalCountText2.textContent = String(cardPool.length);
+
+      const openRequests = tradeRequests.filter(req => (req.status || 'open') === 'open');
+      const mine = openRequests.filter(req => (req.ownerUid || req.uid) === currentUser?.uid).length;
+      myTradeCountText.textContent = String(mine);
+      allTradeCountText.textContent = String(openRequests.length);
+
+      tradeRequestList.innerHTML = '';
+      tradeRequestEmpty.style.display = openRequests.length ? 'none' : 'block';
+
+      openRequests.forEach(req => {
+        const tradeOwnerUid = req.ownerUid || req.uid || '';
+        const isMine = tradeOwnerUid === currentUser?.uid;
+
+        const item = document.createElement('div');
+        item.className = 'trade-card' + (isMine ? ' trade-card-own' : ' trade-card-open');
+        item.innerHTML = `
+          <div class="trade-card-head">
+            <div class="trade-owner">
+              <strong>${req.email || '匿名玩家'}</strong>
+              <span>${formatTradeDate(req.createdAt)}</span>
+            </div>
+            <div class="trade-badge ${isMine ? 'mine' : ''}">${isMine ? '我的請求' : '點擊即可交易'}</div>
+          </div>
+          <div class="trade-pair">
+            <div class="trade-box">
+              <div class="imgbox">
+                <img src="${cardImgUrl(req.giveCardId)}" alt="${req.giveCardName || req.giveCardId}" onerror="this.style.opacity=0.25;" />
+              </div>
+              <div class="label">
+                <div style="color: var(--gold); margin-bottom: 4px;">送出</div>
+                <div>${req.giveCardId} ${req.giveCardName || ''}</div>
+              </div>
+            </div>
+            <div class="trade-arrow">→</div>
+            <div class="trade-box">
+              <div class="imgbox">
+                <img src="${cardImgUrl(req.wantCardId)}" alt="${req.wantCardName || req.wantCardId}" onerror="this.style.opacity=0.25;" />
+              </div>
+              <div class="label">
+                <div style="color: var(--cyan); margin-bottom: 4px;">得到</div>
+                <div>${req.wantCardId} ${req.wantCardName || ''}</div>
+              </div>
+            </div>
+          </div>
+          <div class="trade-card-footer">
+            <div class="mini-pill">送出卡：<strong>${req.giveCardId}</strong></div>
+            <div class="mini-pill">想要卡：<strong>${req.wantCardId}</strong></div>
+            ${isMine
+              ? `<div class="trade-card-actions"><button class="icon-btn" type="button" data-delete-trade="${req.id}">刪除請求</button></div>`
+              : `<div class="trade-card-actions"><button class="icon-btn primary" type="button" data-accept-trade="${req.id}">進行交易</button></div>`}
+          </div>
+        `;
+
+        if (!isMine) {
+          item.style.cursor = 'pointer';
+          item.addEventListener('click', () => showTradeConfirmModal(req));
+        }
+
+        tradeRequestList.appendChild(item);
+      });
+
+      tradeRequestList.querySelectorAll('[data-delete-trade]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const tradeId = btn.getAttribute('data-delete-trade');
+          if (!tradeId) return;
+          try {
+            await deleteDoc(doc(db, 'tradeRequests', tradeId));
+          } catch (err) {
+            console.error(err);
+            showStatus('刪除交易失敗。', 'error');
+          }
+        });
+      });
+
+      tradeRequestList.querySelectorAll('[data-accept-trade]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const tradeId = btn.getAttribute('data-accept-trade');
+          const req = openRequests.find(item => item.id === tradeId);
+          if (req) showTradeConfirmModal(req);
+        });
+      });
+    }
+
+    function renderTradeChoice(card, selected, showCount = false) {
+      const count = userData.ownedCounts?.[card.id] || 0;
+      return `
+        <div class="trade-choice ${selected ? 'active' : ''}" data-card-id="${card.id}">
+          <div class="thumb">
+            <img src="${cardImgUrl(card.id)}" alt="${card.name}" loading="lazy" onerror="this.style.opacity=0.25;" />
+          </div>
+          <div class="meta">
+            <div class="id">No. ${card.id}</div>
+            <div class="name">${card.name}</div>
+            ${showCount ? `<div class="count">x${count}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTradeModal() {
+      tradeCoinText.textContent = String(userData.coins || 0);
+      selectedGiveText.textContent = selectedGiveCardId ? getCardDisplayName(selectedGiveCardId) : '未選擇';
+      selectedWantText.textContent = selectedWantCardId ? getCardDisplayName(selectedWantCardId) : '未選擇';
+      tradeGivePicked.textContent = selectedGiveCardId ? `已選擇送出：${getCardDisplayName(selectedGiveCardId)}` : '尚未選擇送出的卡';
+      tradeWantPicked.textContent = selectedWantCardId ? `已選擇想得到：${getCardDisplayName(selectedWantCardId)}` : '尚未選擇想得到的卡';
+      tradeModalStatus.textContent = '';
+      tradeModalStatus.className = 'status';
+
+      const giveQuery = normalizeText(tradeLeftSearch);
+      const wantQuery = normalizeText(tradeRightSearch);
+
+      const giveCards = cardPool.filter(card => (userData.ownedCounts?.[card.id] || 0) > 0 && (!giveQuery || normalizeText(card.id).includes(giveQuery) || normalizeText(card.name).includes(giveQuery)));
+      const wantCards = cardPool.filter(card => (!wantQuery || normalizeText(card.id).includes(wantQuery) || normalizeText(card.name).includes(wantQuery)));
+
+      tradeGiveGrid.innerHTML = giveCards.length ? giveCards.map(card => renderTradeChoice(card, selectedGiveCardId === card.id, true)).join('') : '<div class="empty-state" style="grid-column:1/-1;">找不到符合條件的已擁有卡片</div>';
+      tradeWantGrid.innerHTML = wantCards.length ? wantCards.map(card => renderTradeChoice(card, selectedWantCardId === card.id, false)).join('') : '<div class="empty-state" style="grid-column:1/-1;">找不到符合條件的卡片</div>';
+
+      tradeGiveGrid.querySelectorAll('.trade-choice').forEach(el => {
+        el.addEventListener('click', () => {
+          selectedGiveCardId = el.getAttribute('data-card-id') || '';
+          renderTradeModal();
+        });
+      });
+
+      tradeWantGrid.querySelectorAll('.trade-choice').forEach(el => {
+        el.addEventListener('click', () => {
+          selectedWantCardId = el.getAttribute('data-card-id') || '';
+          renderTradeModal();
+        });
+      });
+    }
+
+    function startTradeListener() {
+      if (tradeUnsub) tradeUnsub();
+      tradeUnsub = null;
+      if (!currentUser) return;
+
+      const q = query(collection(db, 'tradeRequests'), orderBy('createdAt', 'desc'));
+      tradeUnsub = onSnapshot(q, (snap) => {
+        tradeRequests = snap.docs.map(d => {
+          const data = d.data();
+          return { id: d.id, ...data, ownerUid: data.ownerUid || data.uid || '' };
+        });
+        renderTradeHall();
+      }, (err) => {
+        console.error(err);
+        tradeRequests = [];
+        renderTradeHall();
+        tradeRequestEmpty.style.display = 'block';
+        tradeRequestEmpty.textContent = '交易資料載入失敗，請檢查 Firestore 規則或網路連線。';
+      });
+    }
+
+    async function publishTradeRequest() {
+      if (!currentUser) {
+        tradeModalStatus.textContent = '請先登入。';
+        tradeModalStatus.className = 'status error';
+        return;
+      }
+      const giveCard = findCardById(selectedGiveCardId);
+      const wantCard = findCardById(selectedWantCardId);
+      if (!giveCard || !wantCard) {
+        tradeModalStatus.textContent = '請先完成左右兩邊的卡片選擇。';
+        tradeModalStatus.className = 'status error';
+        return;
+      }
+      if ((userData.ownedCounts?.[giveCard.id] || 0) <= 0) {
+        tradeModalStatus.textContent = '你沒有這張卡，無法建立交易請求。';
+        tradeModalStatus.className = 'status error';
+        return;
+      }
+
+      try {
+        const payload = {
+          uid: currentUser.uid,
+          ownerUid: currentUser.uid,
+          email: currentUser.email || '',
+          giveCardId: giveCard.id,
+          giveCardName: giveCard.name,
+          wantCardId: wantCard.id,
+          wantCardName: wantCard.name,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          status: 'open'
+        };
+
+        await addDoc(collection(db, 'tradeRequests'), payload);
+
+        hideTradeModal();
+        renderTradeHall();
+        showStatus('已發布交易請求。', 'ok');
+      } catch (err) {
+        console.error(err);
+        tradeModalStatus.textContent = '發布交易請求失敗，請確認 Firestore 規則與網路連線。';
+        tradeModalStatus.className = 'status error';
+      }
+    }
+
+    function openTradeHall() {
+      hideShop();
+      hideGame();
+      showView('trade');
+      renderTradeHall();
+    }
+
+    function openTradeEditor() {
+      selectedGiveCardId = '';
+      selectedWantCardId = '';
+      tradeLeftSearch = '';
+      tradeRightSearch = '';
+      showTradeModal('');
+    }
+
+    function parseCardText(text) {
+      return text
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+          const match = line.match(/^(\d+)\s+(.+)$/);
+          if (!match) return null;
+          return { id: match[1].padStart(4, '0'), name: match[2].trim() };
+        })
+        .filter(Boolean);
+    }
+
+    async function loadCardPool() {
+      try {
+        const res = await fetch(CARD_NAME_FILE, { cache: 'no-store' });
+        if (!res.ok) throw new Error('card_name.txt 讀取失敗');
+        const text = await res.text();
+        cardPool = parseCardText(text);
+      } catch (err) {
+        console.error(err);
+        cardPool = [
+          { id: '0001', name: '莫莉' },
+          { id: '0002', name: '高級水術士莫莉' },
+          { id: '0003', name: '水魔法師莫莉' },
+          { id: '0004', name: '水元素賢者莫莉' },
+          { id: '0005', name: '肖恩' }
+        ];
+      }
+      totalCountText.textContent = String(cardPool.length);
+    }
+
+    function getRewardKey(date = new Date()) {
+      const shifted = new Date(date.getTime() + 8 * 60 * 60 * 1000 - 5 * 60 * 60 * 1000);
+      return shifted.toISOString().slice(0, 10);
+    }
+
+    function cardImgUrl(cardId) {
+      return `${CARD_IMG_BASE}${cardId}.jpg`;
+    }
+
+    function ensureCardCountMap(base = {}) {
+      const map = { ...base };
+      for (const card of cardPool) {
+        if (typeof map[card.id] !== 'number') map[card.id] = 0;
+      }
+      return map;
+    }
+
+    function getOwnedCount() {
+      return cardPool.reduce((sum, card) => sum + ((userData.ownedCounts?.[card.id] || 0) > 0 ? 1 : 0), 0);
+    }
+
+    function renderTopStats() {
+      packCountText.textContent = String(userData.packs || 0);
+      coinCountText.textContent = String(userData.coins || 0);
+      userEmailText.textContent = currentUser?.email || '-';
+    }
+
+    function renderResults(cards) {
+      resultsGrid.innerHTML = '';
+      if (!cards || cards.length === 0) {
+        resultsEmpty.style.display = 'block';
+        return;
+      }
+      resultsEmpty.style.display = 'none';
+      cards.forEach((card, index) => {
+        const item = document.createElement('div');
+        item.className = 'result-card';
+        item.innerHTML = `
+          <div class="imgbox">
+            <img src="${cardImgUrl(card.id)}" alt="${card.name}" onerror="this.style.opacity=0.25; this.alt='圖片載入失敗';" />
+          </div>
+          <div class="info">${card.id} ${card.name}</div>
+        `;
+        resultsGrid.appendChild(item);
+        setTimeout(() => item.classList.add('show'), index * 120);
+      });
+    }
+
+    function isOwned(card) {
+      return (userData.ownedCounts?.[card.id] || 0) > 0;
+    }
+
+    function getBackpackFilteredCards() {
+      if (backpackFilter === 'owned') return cardPool.filter(card => isOwned(card));
+      if (backpackFilter === 'unowned') return cardPool.filter(card => !isOwned(card));
+      return cardPool;
+    }
+
+    function renderBackpack() {
+      const filtered = getBackpackFilteredCards();
+      backpackGrid.innerHTML = '';
+      backpackEmpty.style.display = filtered.length ? 'none' : 'block';
+
+      filtered.forEach(card => {
+        const owned = isOwned(card);
+        const count = userData.ownedCounts?.[card.id] || 0;
+        const item = document.createElement('div');
+        item.className = 'bp-item';
+        item.innerHTML = `
+          <div class="bp-card ${owned ? '' : 'unowned'}">
+            <img src="${cardImgUrl(card.id)}" alt="${card.name}" onerror="this.style.opacity=0.25; this.alt='圖片載入失敗';" />
+            <div class="bp-badge">${owned ? `已擁有 x${count}` : '未擁有'}</div>
+          </div>
+          <div class="bp-no">No. ${card.id}</div>
+          <div class="bp-name">${card.name}</div>
+        `;
+        backpackGrid.appendChild(item);
+      });
+
+      ownedCountText.textContent = String(getOwnedCount());
+      totalCountText.textContent = String(cardPool.length);
+      ownedCountText2.textContent = String(getOwnedCount());
+      totalCountText2.textContent = String(cardPool.length);
+    }
+
+    function syncUiFromUserData() {
+      renderTopStats();
+      renderBackpack();
+      renderTradeHall();
+      if (gameCoinText) gameCoinText.textContent = String(userData.coins || 0);
+      if (tradeModal && !tradeModal.classList.contains('hidden')) {
+        tradeCoinText.textContent = String(userData.coins || 0);
+      }
+    }
+
+    async function addCoins(amount, reason = '') {
+      if (!currentUser || amount <= 0) return false;
+      try {
+        const ref = doc(db, USER_COLLECTION, currentUser.uid);
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref);
+          if (!snap.exists()) throw new Error('使用者資料不存在');
+          const data = snap.data();
+          tx.update(ref, {
+            coins: (data.coins || 0) + amount,
+            updatedAt: Date.now(),
+            lastCoinRewardAt: Date.now(),
+            lastCoinRewardReason: reason || ''
+          });
+        });
+        return true;
+      } catch (err) {
+        console.error(err);
+        showStatus('金幣發放失敗，請確認 Firebase 權限與網路連線。', 'error');
+        return false;
+      }
+    }
+
+    function pickFiveCards() {
+      const pool = [...cardPool];
+      const result = [];
+      const used = new Set();
+      while (result.length < 5 && used.size < pool.length) {
+        const idx = Math.floor(Math.random() * pool.length);
+        if (used.has(idx)) continue;
+        used.add(idx);
+        result.push(pool[idx]);
+      }
+      return result;
+    }
+
+    async function createOrLoadUserDoc(user) {
+      const ref = doc(db, USER_COLLECTION, user.uid);
+      const todayKey = getRewardKey();
+
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const base = snap.exists() ? snap.data() : null;
+
+        const payload = {
+          uid: user.uid,
+          email: user.email || '',
+          packs: base?.packs || 0,
+          coins: base?.coins || 0,
+          ownedCounts: ensureCardCountMap(base?.ownedCounts || {}),
+          lastRewardKey: base?.lastRewardKey || '',
+          updatedAt: Date.now()
+        };
+
+        if (!snap.exists()) {
+          payload.createdAt = Date.now();
+        }
+
+        if (payload.lastRewardKey !== todayKey) {
+          payload.packs += 5;
+          payload.lastRewardKey = todayKey;
+          payload.lastRewardAt = Date.now();
+        }
+
+        tx.set(ref, payload, { merge: true });
+      });
+    }
+
+    function startUserListener(user) {
+      if (userUnsub) userUnsub();
+      const ref = doc(db, USER_COLLECTION, user.uid);
+      userUnsub = onSnapshot(ref, (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        userData = {
+          packs: data.packs || 0,
+          coins: data.coins || 0,
+          ownedCounts: ensureCardCountMap(data.ownedCounts || {}),
+          lastRewardKey: data.lastRewardKey || ''
+        };
+        syncUiFromUserData();
+      }, (err) => {
+        console.error(err);
+        showStatus('資料同步失敗，請稍後再試。', 'error');
+      });
+    }
+
+    async function openPackAnim() {
+      if (!currentUser) {
+        showStatus('請先登入才能抽卡。', 'error');
+        return;
+      }
+      if (opening) return;
+      if ((userData.packs || 0) <= 0) {
+        showStatus('剩餘卡包不足，請等每日重置或之後再取得卡包。', 'error');
+        return;
+      }
+      if (cardPool.length === 0) {
+        showStatus('卡片資料尚未載入完成。', 'error');
+        return;
+      }
+
+      opening = true;
+      currentCards = pickFiveCards();
+      pack.classList.remove('open', 'shake');
+      tearGlow.classList.remove('active');
+      burst.classList.remove('active');
+      renderResults([]);
+
+      try {
+        const ref = doc(db, USER_COLLECTION, currentUser.uid);
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref);
+          if (!snap.exists()) throw new Error('使用者資料不存在');
+          const data = snap.data();
+          const packs = data.packs || 0;
+          if (packs <= 0) throw new Error('包數不足');
+
+          const ownedCounts = ensureCardCountMap(data.ownedCounts || {});
+          for (const card of currentCards) {
+            ownedCounts[card.id] = (ownedCounts[card.id] || 0) + 1;
+          }
+
+          tx.update(ref, {
+            packs: packs - 1,
+            coins: data.coins || 0,
+            ownedCounts,
+            updatedAt: Date.now(),
+            lastOpenedAt: Date.now(),
+            lastOpenedGain: 0
+          });
+        });
+      } catch (err) {
+        console.error(err);
+        showStatus('開包失敗，請確認 Firebase 權限與網路連線。', 'error');
+        opening = false;
+        return;
+      }
+
+      pack.classList.add('shake');
+      await wait(800);
+      pack.classList.add('open');
+      tearGlow.classList.add('active');
+      await wait(260);
+      burst.classList.add('active');
+      await wait(350);
+      renderResults(currentCards);
+      await wait(500);
+      burst.classList.remove('active');
+      tearGlow.classList.remove('active');
+      opening = false;
+      showStatus('已成功開啟卡包。', 'ok');
+    }
+
+    function resetOpeningView() {
+      opening = false;
+      currentCards = [];
+      pack.classList.remove('open', 'shake');
+      tearGlow.classList.remove('active');
+      burst.classList.remove('active');
+      renderResults([]);
+      hideShop();
+      hideGame();
+      hideTradeModal();
+    }
+
+    async function buyPackFromShop() {
+      if (!currentUser) {
+        showShop('請先登入才能購買卡包。');
+        return;
+      }
+      if (opening) {
+        showShop('目前正在開包，請稍後再購買。');
+        return;
+      }
+
+      try {
+        const ref = doc(db, USER_COLLECTION, currentUser.uid);
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref);
+          if (!snap.exists()) throw new Error('使用者資料不存在');
+
+          const data = snap.data();
+          const coins = data.coins || 0;
+          if (coins < 10) throw new Error('金幣不足，無法購買卡包。');
+
+          tx.update(ref, {
+            coins: coins - 10,
+            packs: (data.packs || 0) + 1,
+            updatedAt: Date.now(),
+            lastPurchasedAt: Date.now()
+          });
+        });
+
+        showShop('購買成功，已獲得 1 包卡包。');
+      } catch (err) {
+        console.error(err);
+        showShop(err?.message || '購買失敗，請稍後再試。');
+      }
+    }
+
+    async function handleGoogleLogin() {
+      try {
+        showStatus('Google 登入中...', '');
+        await signInWithPopup(auth, googleProvider);
+      } catch (err) {
+        console.error(err);
+        showStatus(err?.message || 'Google 登入失敗。', 'error');
+      }
+    }
+
+    function renderBackpackView() {
+      backpackGrid.innerHTML = '';
+      const filtered = getBackpackFilteredCards();
+      backpackEmpty.style.display = filtered.length ? 'none' : 'block';
+
+      filtered.forEach(card => {
+        const owned = isOwned(card);
+        const count = userData.ownedCounts?.[card.id] || 0;
+        const item = document.createElement('div');
+        item.className = 'bp-item';
+        item.innerHTML = `
+          <div class="bp-card ${owned ? '' : 'unowned'}">
+            <img src="${cardImgUrl(card.id)}" alt="${card.name}" loading="lazy" onerror="this.style.opacity=0.25; this.alt='圖片載入失敗';" />
+            <div class="bp-badge">${owned ? `已擁有 x${count}` : '未擁有'}</div>
+          </div>
+          <div class="bp-no">No. ${card.id}</div>
+          <div class="bp-name">${card.name}</div>
+        `;
+        backpackGrid.appendChild(item);
+      });
+
+      ownedCountText.textContent = String(getOwnedCount());
+      totalCountText.textContent = String(cardPool.length);
+      ownedCountText2.textContent = String(getOwnedCount());
+      totalCountText2.textContent = String(cardPool.length);
+    }
+
+
+    const mergeGame = (() => {
+      const GRID_SIZE = 6;
+      const MARGIN = 5;
+      const MAX_LEVEL = 5;
+
+      const COLOR_MAP = {
+        "水": "#56B4E9",
+        "火": "#D55E00",
+        "木": "#009E73",
+        "土": "#F0E442",
+        "雷": "#CC79A7"
+      };
+      const COLOR_NAMES = Object.keys(COLOR_MAP);
+
+      const IMAGE_PREFIX = {
+        "水": "w",
+        "火": "f",
+        "木": "g",
+        "土": "l",
+        "雷": "d"
+      };
+
+      const tileImages = {};
+      for (const [color, prefix] of Object.entries(IMAGE_PREFIX)) {
+        for (let lvl = 1; lvl <= MAX_LEVEL; lvl++) {
+          const img = new Image();
+          img.src = `${prefix}_${lvl}.png`;
+          tileImages[`${prefix}_${lvl}`] = img;
+        }
+      }
+
+      const canvas = mergeGameCanvas;
+      const ctx = canvas.getContext('2d');
+
+      let visible = false;
+      let rafId = null;
+      let board = null;
+      let isAnimating = false;
+      let dragStart = null;
+      let dragStartPixel = null;
+      let removedTilesForAnimation = [];
+      let swapAnimationTiles = [];
+      let cellSize = 76;
+      let boardOffsetX = 20;
+      let boardOffsetY = 50;
+      let screenWidth = 0;
+      let screenHeight = 0;
+      let boardPixelWidth = 0;
+      let leftThreshold = 0;
+      let rightThreshold = 0;
+      let downThreshold = 0;
+      let dragRemoveDistance = 48;
+
+      const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+      const easeOutQuad = t => t * (2 - t);
+      const easeInQuad = t => t * t;
+      const easeOutBounce = t => {
+        const n1 = 7.5625, d1 = 2.75;
+        if (t < 1 / d1) return n1 * t * t;
+        if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75;
+        if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
+        return n1 * (t -= 2.625 / d1) * t + 0.984375;
+      };
+      const easeOutBack = t => {
+        const c1 = 1.70158, c3 = c1 + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+      };
+
+      class Tile {
+        constructor(color, level) {
+          this.color = color;
+          this.level = level;
+          this.x_offset = 0;
+          this.y_offset = 0;
+          this.scale = 1;
+          this.alpha = 1;
+        }
+        draw(x, y) {
+          if (this.alpha <= 0) return;
+          ctx.save();
+          ctx.globalAlpha = this.alpha;
+          const cx = x + cellSize / 2 + this.x_offset;
+          const cy = y + cellSize / 2 + this.y_offset;
+          const size = (cellSize - 5) * this.scale;
+          const prefix = IMAGE_PREFIX[this.color];
+          const img = tileImages[`${prefix}_${this.level}`];
+          if (img && img.complete && img.naturalWidth > 0) {
+            ctx.drawImage(img, cx - size / 2, cy - size / 2, size, size);
+          } else {
+            const radius = size / 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fillStyle = COLOR_MAP[this.color];
+            ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.font = `bold ${Math.floor(cellSize * 0.325) * this.scale}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(this.level, cx, cy);
+          }
+          ctx.restore();
+        }
+        clone() {
+          return new Tile(this.color, this.level);
+        }
+      }
+
+      class Board {
+        constructor() {
+          this.grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
+          for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) {
+              this.grid[i][j] = this.randomTile();
+            }
+          }
+          this.selected = null;
+          this.clearInitialMatches();
+        }
+
+        randomTile() {
+          const color = COLOR_NAMES[Math.floor(Math.random() * COLOR_NAMES.length)];
+          return new Tile(color, 1);
+        }
+
+        clearInitialMatches() {
+          while (true) {
+            const matches = this.findMatches();
+            if (matches.length === 0) break;
+            for (const m of matches) {
+              const { direction, fixed, start, length } = m;
+              if (direction === 'row') {
+                for (let j = start; j < start + length; j++) this.grid[fixed][j] = this.randomTile();
+              } else {
+                for (let i = start; i < start + length; i++) this.grid[i][fixed] = this.randomTile();
+              }
+            }
+          }
+        }
+
+        draw() {
+          for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) {
+              const x = boardOffsetX + j * (cellSize + MARGIN);
+              const y = boardOffsetY + i * (cellSize + MARGIN);
+              ctx.fillStyle = "#38322D";
+              ctx.fillRect(x, y, cellSize, cellSize);
+
+              const tile = this.grid[i][j];
+              const isSwapping = swapAnimationTiles.some(t => t.i === i && t.j === j);
+              if (tile && !isSwapping) tile.draw(x, y);
+
+              if (this.selected && this.selected.i === i && this.selected.j === j) {
+                ctx.strokeStyle = "rgba(0,0,0,0.6)";
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+              }
+            }
+          }
+        }
+
+        findMatches() {
+          const matches = [];
+
+          for (let i = 0; i < GRID_SIZE; i++) {
+            let runColor = null, runLevel = null, runStart = 0, runLen = 0;
+            for (let j = 0; j < GRID_SIZE; j++) {
+              const t = this.grid[i][j];
+              if (t && t.level < MAX_LEVEL && (runColor === null || (t.color === runColor && t.level === runLevel))) {
+                if (runColor === null) {
+                  runColor = t.color; runLevel = t.level; runStart = j; runLen = 1;
+                } else {
+                  runLen++;
+                }
+              } else {
+                if (runLen >= 3) matches.push({ direction: 'row', fixed: i, start: runStart, length: runLen, color: runColor, level: runLevel });
+                if (t && t.level < MAX_LEVEL) {
+                  runColor = t.color; runLevel = t.level; runStart = j; runLen = 1;
+                } else {
+                  runColor = null; runLevel = null; runLen = 0;
+                }
+              }
+            }
+            if (runLen >= 3) matches.push({ direction: 'row', fixed: i, start: runStart, length: runLen, color: runColor, level: runLevel });
+          }
+
+          for (let j = 0; j < GRID_SIZE; j++) {
+            let runColor = null, runLevel = null, runStart = 0, runLen = 0;
+            for (let i = 0; i < GRID_SIZE; i++) {
+              const t = this.grid[i][j];
+              if (t && t.level < MAX_LEVEL && (runColor === null || (t.color === runColor && t.level === runLevel))) {
+                if (runColor === null) {
+                  runColor = t.color; runLevel = t.level; runStart = i; runLen = 1;
+                } else {
+                  runLen++;
+                }
+              } else {
+                if (runLen >= 3) matches.push({ direction: 'col', fixed: j, start: runStart, length: runLen, color: runColor, level: runLevel });
+                if (t && t.level < MAX_LEVEL) {
+                  runColor = t.color; runLevel = t.level; runStart = i; runLen = 1;
+                } else {
+                  runColor = null; runLevel = null; runLen = 0;
+                }
+              }
+            }
+            if (runLen >= 3) matches.push({ direction: 'col', fixed: j, start: runStart, length: runLen, color: runColor, level: runLevel });
+          }
+
+          return matches;
+        }
+
+        async applyMatches(matches) {
+          if (!matches || matches.length === 0) return 0;
+
+          const cleared = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(false));
+          const upgraded = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(false));
+          let rewardLv5Count = 0;
+
+          for (const m of matches) {
+            const { direction, fixed, start, length, color, level } = m;
+            if (length < 3) continue;
+
+            const newLvl = Math.min(MAX_LEVEL, level + 1);
+            const midStart = start + 1;
+            const midEnd = start + length - 2;
+
+            if (direction === 'row') {
+              cleared[fixed][start] = true;
+              cleared[fixed][start + length - 1] = true;
+              for (let jj = midStart; jj <= midEnd; jj++) {
+                this.grid[fixed][jj] = new Tile(color, newLvl);
+                this.grid[fixed][jj].scale = 0;
+                upgraded[fixed][jj] = true;
+                if (newLvl === MAX_LEVEL) rewardLv5Count += 1;
+              }
+            } else {
+              cleared[start][fixed] = true;
+              cleared[start + length - 1][fixed] = true;
+              for (let ii = midStart; ii <= midEnd; ii++) {
+                this.grid[ii][fixed] = new Tile(color, newLvl);
+                this.grid[ii][fixed].scale = 0;
+                upgraded[ii][fixed] = true;
+                if (newLvl === MAX_LEVEL) rewardLv5Count += 1;
+              }
+            }
+          }
+
+          removedTilesForAnimation = [];
+          const upgradeTiles = [];
+          for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) {
+              if (cleared[i][j] && !upgraded[i][j] && this.grid[i][j]) {
+                removedTilesForAnimation.push({ i, j, tile: this.grid[i][j] });
+                this.grid[i][j] = null;
+              }
+              if (this.grid[i][j] && this.grid[i][j].scale === 0) {
+                upgradeTiles.push(this.grid[i][j]);
+              }
+            }
+          }
+
+          for (let step = 1; step <= 15; step++) {
+            const t = step / 15;
+            removedTilesForAnimation.forEach(rt => {
+              if (t < 0.3) {
+                rt.tile.scale = 1 + easeOutQuad(t / 0.3) * 0.2;
+              } else {
+                const shrinkT = (t - 0.3) / 0.7;
+                rt.tile.scale = 1.2 - easeInQuad(shrinkT) * 1.2;
+                rt.tile.alpha = 1 - shrinkT;
+              }
+            });
+            upgradeTiles.forEach(ut => {
+              ut.scale = Math.min(1, easeOutBack(t));
+            });
+            await sleep(16);
+          }
+
+          removedTilesForAnimation = [];
+          upgradeTiles.forEach(ut => ut.scale = 1);
+
+          const fallingTiles = [];
+          for (let j = 0; j < GRID_SIZE; j++) {
+            const stack = [];
+            for (let i = GRID_SIZE - 1; i >= 0; i--) {
+              if (this.grid[i][j]) stack.push(this.grid[i][j]);
+            }
+
+            for (let i = GRID_SIZE - 1; i >= 0; i--) {
+              if (stack.length > 0) {
+                const tile = stack.shift();
+                const currentRealY = this.grid.findIndex(row => row[j] === tile);
+                if (currentRealY !== -1 && currentRealY !== i) {
+                  tile.y_offset -= (i - currentRealY) * (cellSize + MARGIN);
+                  fallingTiles.push(tile);
+                }
+                this.grid[i][j] = tile;
+              } else {
+                const nt = this.randomTile();
+                nt.y_offset = -(i + 1) * (cellSize + MARGIN);
+                this.grid[i][j] = nt;
+                fallingTiles.push(nt);
+              }
+            }
+          }
+
+          if (fallingTiles.length > 0) {
+            const dropSteps = 24;
+            fallingTiles.forEach(t => t.startY = t.y_offset);
+            for (let s = 1; s <= dropSteps; s++) {
+              const progress = easeOutBounce(s / dropSteps);
+              fallingTiles.forEach(t => {
+                t.y_offset = t.startY * (1 - progress);
+              });
+              await sleep(16);
+            }
+            fallingTiles.forEach(t => t.y_offset = 0);
+          }
+
+          return rewardLv5Count;
+        }
+
+        async resolveAllMatches() {
+          let totalReward = 0;
+          while (true) {
+            const matches = this.findMatches();
+            if (matches.length === 0) break;
+            totalReward += await this.applyMatches(matches);
+          }
+          return totalReward;
+        }
+
+        async animatedSwap(pos1, pos2) {
+          const t1 = this.grid[pos1.i][pos1.j];
+          const t2 = this.grid[pos2.i][pos2.j];
+          if (!t1 && !t2) return;
+
+          const dx = (pos2.j - pos1.j) * (cellSize + MARGIN);
+          const dy = (pos2.i - pos1.i) * (cellSize + MARGIN);
+
+          if (t1) swapAnimationTiles.push({ i: pos1.i, j: pos1.j, tile: t1, startX: 0, startY: 0, endX: dx, endY: dy });
+          if (t2) swapAnimationTiles.push({ i: pos2.i, j: pos2.j, tile: t2, startX: 0, startY: 0, endX: -dx, endY: -dy });
+
+          for (let s = 1; s <= 12; s++) {
+            const progress = easeOutQuad(s / 12);
+            swapAnimationTiles.forEach(item => {
+              item.tile.x_offset = item.startX + (item.endX - item.startX) * progress;
+              item.tile.y_offset = item.startY + (item.endY - item.startY) * progress;
+            });
+            await sleep(16);
+          }
+
+          const temp = this.grid[pos1.i][pos1.j];
+          this.grid[pos1.i][pos1.j] = this.grid[pos2.i][pos2.j];
+          this.grid[pos2.i][pos2.j] = temp;
+
+          if (t1) { t1.x_offset = 0; t1.y_offset = 0; }
+          if (t2) { t2.x_offset = 0; t2.y_offset = 0; }
+
+          swapAnimationTiles = [];
+        }
+
+        async removeAndCollapse(ri, rj) {
+          if (ri < 0 || ri >= GRID_SIZE || rj < 0 || rj >= GRID_SIZE) return;
+          if (!this.grid[ri][rj]) return;
+
+          const removedTile = this.grid[ri][rj];
+          this.grid[ri][rj] = null;
+
+          removedTilesForAnimation = [{ i: ri, j: rj, tile: removedTile }];
+          for (let step = 1; step <= 15; step++) {
+            const t = step / 15;
+            removedTilesForAnimation[0].tile.scale = 1 - easeInQuad(t);
+            removedTilesForAnimation[0].tile.alpha = 1 - t;
+            await sleep(16);
+          }
+          removedTilesForAnimation = [];
+
+          const stack = [];
+          const j = rj;
+          const fallingTiles = [];
+          for (let i = GRID_SIZE - 1; i >= 0; i--) {
+            if (this.grid[i][j]) stack.push(this.grid[i][j]);
+          }
+          for (let i = GRID_SIZE - 1; i >= 0; i--) {
+            if (stack.length > 0) {
+              const tile = stack.shift();
+              const currentRealY = this.grid.findIndex(row => row[j] === tile);
+              if (currentRealY !== -1 && currentRealY !== i) {
+                tile.y_offset -= (i - currentRealY) * (cellSize + MARGIN);
+                fallingTiles.push(tile);
+              }
+              this.grid[i][j] = tile;
+            } else {
+              const nt = this.randomTile();
+              nt.y_offset = -(i + 1) * (cellSize + MARGIN);
+              this.grid[i][j] = nt;
+              fallingTiles.push(nt);
+            }
+          }
+
+          if (fallingTiles.length > 0) {
+            const dropSteps = 24;
+            fallingTiles.forEach(t => t.startY = t.y_offset);
+            for (let s = 1; s <= dropSteps; s++) {
+              const progress = easeOutBounce(s / dropSteps);
+              fallingTiles.forEach(t => t.y_offset = t.startY * (1 - progress));
+              await sleep(16);
+            }
+            fallingTiles.forEach(t => t.y_offset = 0);
+          }
+
+          return await this.resolveAllMatches();
+        }
+      }
+
+      function fitCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(320, Math.floor(rect.width));
+        const height = Math.max(560, Math.floor(rect.height));
+        canvas.width = width;
+        canvas.height = height;
+
+        boardPixelWidth = GRID_SIZE * (cellSize + MARGIN) - MARGIN;
+        const maxWidthForCells = Math.max(220, width - 40);
+        cellSize = Math.floor(Math.min(88, (maxWidthForCells - MARGIN * (GRID_SIZE - 1)) / GRID_SIZE));
+        boardPixelWidth = GRID_SIZE * cellSize + (GRID_SIZE - 1) * MARGIN;
+        boardOffsetX = Math.max(20, Math.floor((width - boardPixelWidth) / 2));
+        boardOffsetY = 58;
+        leftThreshold = boardOffsetX - Math.max(64, Math.floor(width * 0.08));
+        rightThreshold = boardOffsetX + boardPixelWidth - 1 + Math.max(64, Math.floor(width * 0.08));
+        downThreshold = boardOffsetY + boardPixelWidth - 1 + Math.max(64, Math.floor(width * 0.08));
+        dragRemoveDistance = Math.max(48, Math.floor(0.6 * cellSize));
+
+        if (!board) board = new Board();
+      }
+
+      function drawText(text, x, y, size = 18, color = '#333', align = 'left') {
+        ctx.fillStyle = color;
+        ctx.font = `bold ${size}px 'Noto Sans TC', sans-serif`;
+        ctx.textAlign = align;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y);
+      }
+
+      function render() {
+        if (!canvas.width || !canvas.height) fitCanvas();
+
+        ctx.fillStyle = '#EAEAEA';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (visible && board) {
+          ctx.fillStyle = '#2B2622';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.fillStyle = 'rgba(255,255,255,0.07)';
+          ctx.fillRect(0, 0, canvas.width, 44);
+          drawText(`目前金幣：${userData.coins || 0}`, 18, 22, 18, '#fff', 'left');
+          drawText('拖曳相鄰方塊交換', canvas.width - 18, 22, 16, 'rgba(255,255,255,0.82)', 'right');
+
+          board.draw();
+
+          for (const st of swapAnimationTiles) {
+            const x = boardOffsetX + st.j * (cellSize + MARGIN);
+            const y = boardOffsetY + st.i * (cellSize + MARGIN);
+            st.tile.draw(x, y);
+          }
+          for (const rt of removedTilesForAnimation) {
+            const x = boardOffsetX + rt.j * (cellSize + MARGIN);
+            const y = boardOffsetY + rt.i * (cellSize + MARGIN);
+            rt.tile.draw(x, y);
+          }
+        }
+
+        rafId = requestAnimationFrame(render);
+      }
+
+      function getCellFromPoint(mx, my) {
+        for (let i = 0; i < GRID_SIZE; i++) {
+          for (let j = 0; j < GRID_SIZE; j++) {
+            const x = boardOffsetX + j * (cellSize + MARGIN);
+            const y = boardOffsetY + i * (cellSize + MARGIN);
+            if (mx >= x && mx < x + cellSize && my >= y && my < y + cellSize) return { i, j };
+          }
+        }
+        return null;
+      }
+
+      function getCanvasPoint(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+          x: (e.clientX - rect.left) * scaleX,
+          y: (e.clientY - rect.top) * scaleY
+        };
+      }
+
+      async function openGame() {
+        if (!currentUser) {
+          showStatus('請先登入才能遊玩。', 'error');
+          return;
+        }
+        fitCanvas();
+        showGame('');
+      }
+
+      async function handlePointerDown(e) {
+        if (!visible || isAnimating || !board) return;
+        const { x, y } = getCanvasPoint(e);
+        const pos = getCellFromPoint(x, y);
+
+        if (pos) {
+          dragStart = pos;
+          dragStartPixel = { x, y };
+          board.selected = pos;
+          e.preventDefault();
+          return;
+        }
+      }
+
+      async function handlePointerUp(e) {
+        if (!visible || isAnimating || !dragStart || !board) {
+          dragStart = null;
+          if (board) board.selected = null;
+          return;
+        }
+
+        const { x: mx, y: my } = getCanvasPoint(e);
+        const endCell = getCellFromPoint(mx, my);
+        isAnimating = true;
+        const { i: si, j: sj } = dragStart;
+
+        try {
+          if (endCell) {
+            if (Math.abs(si - endCell.i) + Math.abs(sj - endCell.j) === 1) {
+              await board.animatedSwap(dragStart, endCell);
+              const coinsEarned = await board.resolveAllMatches();
+              if (coinsEarned > 0) {
+                await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
+                showGame(`成功製作出 Lv5 × ${coinsEarned}，已獲得 ${coinsEarned * 2} 金幣。`);
+              } else {
+                showGame('');
+              }
+            }
+          } else {
+            const dx = mx - dragStartPixel.x;
+            const dy = my - dragStartPixel.y;
+            if (sj === 0 && (mx < leftThreshold || dx < -dragRemoveDistance)) {
+              const coinsEarned = await board.removeAndCollapse(si, sj);
+              if (coinsEarned > 0) {
+                await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
+                showGame(`成功製作出 Lv5 × ${coinsEarned}，已獲得 ${coinsEarned * 2} 金幣。`);
+              } else {
+                showGame('');
+              }
+            } else if (sj === GRID_SIZE - 1 && (mx > rightThreshold || dx > dragRemoveDistance)) {
+              const coinsEarned = await board.removeAndCollapse(si, sj);
+              if (coinsEarned > 0) {
+                await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
+                showGame(`成功製作出 Lv5 × ${coinsEarned}，已獲得 ${coinsEarned * 2} 金幣。`);
+              } else {
+                showGame('');
+              }
+            } else if (si === GRID_SIZE - 1 && (my > downThreshold || dy > dragRemoveDistance)) {
+              const coinsEarned = await board.removeAndCollapse(si, sj);
+              if (coinsEarned > 0) {
+                await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
+                showGame(`成功製作出 Lv5 × ${coinsEarned}，已獲得 ${coinsEarned * 2} 金幣。`);
+              } else {
+                showGame('');
+              }
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          showGame('操作失敗，請稍後再試。');
+        }
+
+        board.selected = null;
+        dragStart = null;
+        dragStartPixel = null;
+        isAnimating = false;
+      }
+
+      canvas.addEventListener('pointerdown', handlePointerDown);
+      window.addEventListener('pointerup', handlePointerUp);
+      window.addEventListener('pointercancel', handlePointerUp);
+      window.addEventListener('resize', () => {
+        if (visible) fitCanvas();
+      });
+
+      fitCanvas();
+      render();
+
+      return {
+        resize: fitCanvas,
+        setVisible(next) {
+          visible = next;
+          if (visible && !board) board = new Board();
+          if (visible) {
+            gameCoinText.textContent = String(userData.coins || 0);
+            gameStatus.textContent = '';
+            gameStatus.className = 'status';
+          } else {
+            board.selected = null;
+            dragStart = null;
+            dragStartPixel = null;
+            isAnimating = false;
+          }
+        }
+      };
+    })();
+
+    googleLoginBtn.addEventListener('click', handleGoogleLogin);
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.error(err);
+        showStatus('登出失敗。', 'error');
+      }
+    });
+    shopBtn.addEventListener('click', () => showShop());
+    earnBtn.addEventListener('click', () => {
+      hideShop();
+      hideTradeModal();
+      showGame('');
+    });
+    tradeHallBtn.addEventListener('click', openTradeHall);
+    addTradeBtn.addEventListener('click', openTradeEditor);
+    closeTradeBtn.addEventListener('click', hideTradeModal);
+    tradeBackdrop.addEventListener('click', hideTradeModal);
+    tradeGiveSearch.addEventListener('input', (e) => {
+      tradeLeftSearch = e.target.value;
+      renderTradeModal();
+    });
+    tradeWantSearch.addEventListener('input', (e) => {
+      tradeRightSearch = e.target.value;
+      renderTradeModal();
+    });
+    saveTradeBtn.addEventListener('click', publishTradeRequest);
+    closeTradeConfirmBtn.addEventListener('click', hideTradeConfirmModal);
+    cancelTradeConfirmBtn.addEventListener('click', hideTradeConfirmModal);
+    confirmTradeBtn.addEventListener('click', confirmTradeFromModal);
+    tradeConfirmBackdrop.addEventListener('click', hideTradeConfirmModal);
+    closeShopBtn.addEventListener('click', hideShop);
+    shopBackdrop.addEventListener('click', hideShop);
+    buyPackBtn.addEventListener('click', buyPackFromShop);
+    closeEarnBtn.addEventListener('click', hideGame);
+    earnBackdrop.addEventListener('click', hideGame);
+    openPackBtn.addEventListener('click', openPackAnim);
+    pack.addEventListener('click', openPackAnim);
+    toBackpackBtn.addEventListener('click', () => {
+      hideShop();
+      hideTradeModal();
+      showView('backpack');
+      renderBackpackView();
+    });
+    toOpeningBtn.addEventListener('click', () => {
+      hideShop();
+      hideTradeModal();
+      showView('opening');
+    });
+
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        backpackFilter = btn.dataset.filter;
+        filterBtns.forEach(b => b.classList.toggle('active', b === btn));
+        renderBackpackView();
+      });
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user || null;
+      resetOpeningView();
+
+      if (!user) {
+        if (userUnsub) userUnsub();
+        if (tradeUnsub) tradeUnsub();
+        userUnsub = null;
+        tradeUnsub = null;
+        tradeRequests = [];
+        userData = { packs: 0, coins: 0, ownedCounts: {}, lastRewardKey: '' };
+        authView.classList.add('active');
+        appView.classList.remove('active');
+        hideShop();
+        hideGame();
+        hideTradeModal();
+        showStatus('');
+        return;
+      }
+
+      try {
+        showStatus('同步資料中...', '');
+        await createOrLoadUserDoc(user);
+        startUserListener(user);
+        startTradeListener();
+        authView.classList.remove('active');
+        appView.classList.add('active');
+        showView('opening');
+        showStatus('');
+      } catch (err) {
+        console.error(err);
+        showStatus('初始化使用者資料失敗。', 'error');
+      }
+    });
+
+    (async function init() {
+      await loadCardPool();
+      totalCountText.textContent = String(cardPool.length);
+      renderBackpackView();
+      renderTradeHall();
+    })();
+  </script>
+</body>
+</html>
