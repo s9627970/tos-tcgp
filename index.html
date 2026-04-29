@@ -1819,18 +1819,44 @@
 
     async function handleGoogleLogin() {
       try {
+        console.log('click login');
         showStatus('Google 登入中...', '');
-        await signInWithPopup(auth, googleProvider);
+        const result = await signInWithPopup(auth, googleProvider);
+        console.log('popup ok:', result.user.uid, result.user.email);
       } catch (err) {
-        console.error(err);
-        if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/popup-closed-by-user') {
-          showStatus('彈出視窗被阻擋，正在改用重新導向登入...', '');
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        }
+        console.error('popup error:', err);
         showStatus(err?.message || 'Google 登入失敗。', 'error');
       }
     }
+
+    onAuthStateChanged(auth, async (user) => {
+      console.log('auth state changed:', user?.uid, user?.email);
+
+      currentUser = user || null;
+      resetOpeningView();
+
+      if (!user) {
+        console.log('no user');
+        return;
+      }
+
+      try {
+        console.log('before createOrLoadUserDoc');
+        showStatus('同步資料中...', '');
+        await createOrLoadUserDoc(user);
+        console.log('after createOrLoadUserDoc');
+
+        startUserListener(user);
+        startTradeListener();
+        authView.classList.remove('active');
+        appView.classList.add('active');
+        showView('opening');
+        showStatus('');
+      } catch (err) {
+        console.error('init user doc failed:', err);
+        showStatus(`初始化使用者資料失敗：${err.message}`, 'error');
+      }
+    });
 
     function renderBackpackView() {
       backpackGrid.innerHTML = '';
