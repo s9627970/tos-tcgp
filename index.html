@@ -988,7 +988,6 @@
       </div>
     </div>
   </div>
-  </div>
 
   <div id="notice-modal" class="modal">
     <div class="modal-content" style="max-width: 360px; text-align: center; border: 1px solid var(--border); background: var(--panel-strong);">
@@ -997,6 +996,10 @@
       <button class="btn" onclick="closeNotice()" style="width: 100%; background: var(--indigo); color: white; padding: 12px; border-radius: 8px; cursor: pointer;">確定</button>
     </div>
   </div>
+
+  </div>
+
+  
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js';
@@ -1197,16 +1200,18 @@
       const msgEl = document.getElementById('notice-message');
       
       titleEl.textContent = title;
-      // 如果是錯誤，標題顯示紅色；成功則顯示主題青色
+      // 錯誤用紅色，成功用青藍色
       titleEl.style.color = isError ? '#ff5555' : 'var(--cyan)';
       msgEl.textContent = msg;
       
-      modal.classList.add('active');
+      // 配合你原本的設定：移除 hidden class 來顯示
+      modal.classList.remove('hidden');
     }
 
     // 關閉提示視窗
     function closeNotice() {
-      document.getElementById('notice-modal').classList.remove('active');
+      // 配合你原本的設定：加入 hidden class 來隱藏
+      document.getElementById('notice-modal').classList.add('hidden');
     }
 
     function hideTradeModal() {
