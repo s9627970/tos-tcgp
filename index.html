@@ -997,7 +997,7 @@
       onAuthStateChanged,
       GoogleAuthProvider,
       getRedirectResult,
-      signInWithRedirect,
+      signInWithPopup,
       signOut
     } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js';
     import {
@@ -1821,12 +1821,23 @@
 
     async function handleGoogleLogin() {
       try {
-        showStatus('Google 登入中...', '');
-        // 嚴格依照要求：只使用 signInWithRedirect
-        await signInWithRedirect(auth, googleProvider);
-      } catch (err) {
-        console.error(err);
-        showStatus(err?.message || 'Google 登入失敗。', 'error');
+        showStatus('準備登入...', '');
+        // 改用 Popup 彈出視窗登入
+        const result = await signInWithPopup(auth, provider);
+        
+        // Popup 成功後，這裡會直接拿到 user
+        const user = result.user;
+        console.log("✅ 彈窗登入成功:", user.email);
+        
+        // 這裡通常不需要手動做什麼，因為 onAuthStateChanged 會自動被觸發
+      } catch (error) {
+        console.error("❌ 登入失敗:", error);
+        // 處理常見錯誤
+        if (error.code === 'auth/popup-closed-by-user') {
+          showStatus('登入視窗被關閉', 'error');
+        } else {
+          showStatus('登入發生錯誤: ' + error.message, 'error');
+        }
       }
     }
 
@@ -2553,23 +2564,6 @@
       } catch (err) {
         console.error("❌ [Init] 載入卡池失敗:", err);
         window.isCardPoolLoaded = true; // 即使失敗也要放行，避免 Auth 區塊等死
-      }
-
-      // 處理 Redirect 登入結果
-      try {
-        console.log("A. [Init] 檢查 Redirect 結果...");
-        const result = await withTimeout(getRedirectResult(auth), 3000); 
-        
-        // 💡 新增這行來檢查
-        if (result && result.user) {
-          console.log("✅ [Init] Redirect 成功抓到使用者:", result.user.email);
-        } else {
-          console.log("ℹ️ [Init] Redirect 檢查結束，但沒有抓到登入資訊 (Result 為空)");
-        }
-        
-        console.log("B. [Init] Redirect 檢查完成");
-      } catch (err) {
-        console.warn('⚠️ [Init] Redirect 檢查失敗或逾時:', err.message);
       }
       
       if (currentUser) {
