@@ -1819,24 +1819,29 @@
       }
     }
 
+    // 登入按鈕點擊事件
     async function handleGoogleLogin() {
+      // 1. 立即定義 provider
+      const googleProvider = new GoogleAuthProvider();
+
       try {
-        showStatus('準備登入...', '');
-        // 改用 Popup 彈出視窗登入
+        // 2. 💡 關鍵：立即呼叫彈窗，不要在前面放任何 await 邏輯
+        // 這樣瀏覽器才會認定這是由使用者點擊直接觸發的
         const result = await signInWithPopup(auth, googleProvider);
         
-        // Popup 成功後，這裡會直接拿到 user
-        const user = result.user;
-        console.log("✅ 彈窗登入成功:", user.email);
+        console.log("✅ 登入成功:", result.user.email);
+        showStatus('登入成功，同步中...', '');
         
-        // 這裡通常不需要手動做什麼，因為 onAuthStateChanged 會自動被觸發
       } catch (error) {
         console.error("❌ 登入失敗:", error);
-        // 處理常見錯誤
-        if (error.code === 'auth/popup-closed-by-user') {
-          showStatus('登入視窗被關閉', 'error');
+        
+        if (error.code === 'auth/popup-blocked') {
+          alert('登入視窗被瀏覽器攔截，請點擊瀏覽器網址列右側的圖標以允許彈出視窗，然後再試一次。');
+          showStatus('請允許彈出視窗後重試', 'error');
+        } else if (error.code === 'auth/popup-closed-by-user') {
+          showStatus('您關閉了登入視窗', 'error');
         } else {
-          showStatus('登入發生錯誤: ' + error.message, 'error');
+          showStatus('登入錯誤: ' + error.message, 'error');
         }
       }
     }
