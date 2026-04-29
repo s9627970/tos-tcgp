@@ -2532,11 +2532,16 @@
     });
 
     // 💡 修復處 3：優化 onAuthStateChanged 的執行順序與錯誤捕捉邏輯
+    console.log(">>> [Debug] 腳本開始執行 (Script Loaded)");
+
     onAuthStateChanged(auth, async (user) => {
+      console.log(">>> [Auth] 狀態變更偵測中... User對象為:", user);
+      
       currentUser = user || null;
       resetOpeningView();
 
       if (!user) {
+        console.log(">>> [Auth] 目前為【未登入】狀態");
         if (userUnsub) userUnsub();
         if (tradeUnsub) tradeUnsub();
         userUnsub = null;
@@ -2552,27 +2557,23 @@
         return;
       }
 
+      // 以下是登入後才會執行的邏輯
       try {
-        console.log("1. [Auth] 偵測到登入，開始同步...");
+        console.log("1. [Auth] 偵測到登入，準備同步資料...");
         showStatus('同步資料中...', '');
 
-        // 💡 防止死循環：最多等 5 秒
         let retryCount = 0;
         const maxRetry = 100; 
-        
         while (!window.isCardPoolLoaded && retryCount < maxRetry) {
-          if (retryCount % 20 === 0) console.log("...正在等待卡池載入 (Check: " + retryCount + ")");
-          await delay(50); // 改用 delay
+          if (retryCount % 20 === 0) console.log("...正在等待卡池 (Retry: " + retryCount + ")");
+          await delay(50);
           retryCount++;
         }
 
-        if (retryCount >= maxRetry) {
-          console.warn("2. [Auth] 卡池載入超時，強制繼續");
-        }
-
-        console.log("3. [Auth] 執行 createOrLoadUserDoc");
+        console.log("2. [Auth] 準備執行 createOrLoadUserDoc");
         await createOrLoadUserDoc(user);
         
+        console.log("3. [Auth] 啟動 Listeners");
         startUserListener(user);
         startTradeListener();
 
@@ -2580,39 +2581,36 @@
         appView.classList.add('active');
         showView('opening');
         showStatus('');
-        console.log("4. [Auth] 登入流程完成");
+        console.log("4. [Auth] 登入流程完全結束，進入主畫面");
 
       } catch (err) {
-        console.error("❌ [Auth] 發生錯誤:", err);
-        showStatus('資料同步失敗', 'error');
-        authView.classList.remove('active');
-        appView.classList.add('active');
-        showView('opening');
+        console.error("❌ [Auth] 流程中斷錯誤:", err);
+        showStatus('初始化失敗', 'error');
       }
     });
 
     (async function initApp() {
+      console.log(">>> [Init] initApp 立即執行函式啟動");
       try {
-        console.log("A. [Init] 取得 Redirect 結果...");
+        console.log("A. [Init] 檢查 Redirect 結果...");
         await getRedirectResult(auth);
+        console.log("B. [Init] Redirect 檢查完成");
       } catch (err) {
-        console.error('getRedirectResult failed:', err);
+        console.error('❌ [Init] getRedirectResult 失敗:', err);
       }
 
       try {
-        console.log("B. [Init] 載入卡池資料...");
+        console.log("C. [Init] 開始載入卡池...");
         await loadCardPool();
-        // 確保設定 flag
         window.isCardPoolLoaded = true;
-        console.log("C. [Init] 卡池載入完成");
+        console.log("D. [Init] 卡池載入完成 Flag = true");
       } catch (err) {
-        console.error("❌ [Init] 卡池載入失敗:", err);
-        // 即使失敗也設為 true，避免 onAuthStateChanged 那邊無限等待
+        console.error("❌ [Init] loadCardPool 失敗:", err);
         window.isCardPoolLoaded = true; 
       }
       
       if (currentUser) {
-        console.log("D. [Init] 執行初始渲染");
+        console.log("E. [Init] 偵測到已有登入 Session，執行渲染");
         renderBackpackView();
         renderTradeHall();
       }
