@@ -1819,12 +1819,15 @@
 
     async function handleGoogleLogin() {
       try {
-        console.log('click login');
         showStatus('Google 登入中...', '');
-        const result = await signInWithPopup(auth, googleProvider);
-        console.log('popup ok:', result.user.uid, result.user.email);
+        await signInWithPopup(auth, googleProvider);
       } catch (err) {
-        console.error('popup error:', err);
+        console.error(err);
+        if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/popup-closed-by-user') {
+          showStatus('彈出視窗被阻擋，正在改用重新導向登入...', '');
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        }
         showStatus(err?.message || 'Google 登入失敗。', 'error');
       }
     }
