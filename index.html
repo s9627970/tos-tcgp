@@ -2390,9 +2390,18 @@
         canvas.width = width;
         canvas.height = height;
 
-        boardPixelWidth = GRID_SIZE * (cellSize + MARGIN) - MARGIN;
+        // 1. 計算可用寬度
         const maxWidthForCells = Math.max(220, width - 40);
-        cellSize = Math.floor(Math.min(88, (maxWidthForCells - MARGIN * (GRID_SIZE - 1)) / GRID_SIZE));
+        // 2. 新增：計算可用高度（保留上方文字 58px 與底部邊緣的空間約 80px）
+        const maxHeightForCells = Math.max(220, height - 80);
+
+        // 3. 分別算出寬度與高度允許的最大方塊尺寸
+        const maxCellW = (maxWidthForCells - MARGIN * (GRID_SIZE - 1)) / GRID_SIZE;
+        const maxCellH = (maxHeightForCells - MARGIN * (GRID_SIZE - 1)) / GRID_SIZE;
+
+        // 4. 修改：將高度限制也加入 Math.min 裡面做比較
+        cellSize = Math.floor(Math.min(88, maxCellW, maxCellH));
+        
         boardPixelWidth = GRID_SIZE * cellSize + (GRID_SIZE - 1) * MARGIN;
         boardOffsetX = Math.max(20, Math.floor((width - boardPixelWidth) / 2));
         boardOffsetY = 58;
