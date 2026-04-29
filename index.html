@@ -619,6 +619,7 @@
     }
     .trade-card-actions {
       display: flex;
+      justify-content: center;
       gap: 8px;
       width: 100%;
       align-items: center;
@@ -631,6 +632,12 @@
       width: min(1140px, 100%);
     }
     .trade-modal-summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: -4px 0 14px;
+    }
+    .summary-line {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
@@ -978,9 +985,14 @@
         <button class="icon-btn modal-close" id="closeTradeBtn" type="button">關閉</button>
       </div>
       <div class="trade-modal-summary">
-        <div class="mini-pill">目前金幣：<strong id="tradeCoinText">0</strong></div><br>
-        <div class="mini-pill">送出：<strong id="selectedGiveText">未選擇</strong></div>
-        <div class="mini-pill">得到：<strong id="selectedWantText">未選擇</strong></div>
+        <div class="summary-line">
+          <div class="mini-pill">目前金幣：<strong id="tradeCoinText">0</strong></div>
+        </div>
+        
+        <div class="summary-line">
+          <div class="mini-pill">送出：<strong id="selectedGiveText">未選擇</strong></div>
+          <div class="mini-pill">得到：<strong id="selectedWantText">未選擇</strong></div>
+        </div>
       </div>
       <div class="trade-split-grid">
         <div class="trade-side">
