@@ -1101,7 +1101,7 @@
     const tradeConfirmText = document.getElementById('tradeConfirmText');
     const filterBtns = Array.from(document.querySelectorAll('.filter-btn'));
 
-    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     let opening = false;
     let currentUser = null;
@@ -2553,43 +2553,38 @@
       }
 
       try {
-        console.log("1. [Auth] 偵測到登入，開始同步流程...");
+        console.log("1. [Auth] 偵測到登入，開始同步...");
         showStatus('同步資料中...', '');
 
-        // 💡 優化：加入超時機制，避免卡池載入失敗導致永久卡死
+        // 💡 防止死循環：最多等 5 秒
         let retryCount = 0;
-        const maxRetry = 100; // 最多等待 5 秒 (50ms * 100)
+        const maxRetry = 100; 
         
         while (!window.isCardPoolLoaded && retryCount < maxRetry) {
-          if (retryCount % 20 === 0) console.log("...正在等待卡池資料載入中");
-          await wait(50);
+          if (retryCount % 20 === 0) console.log("...正在等待卡池載入 (Check: " + retryCount + ")");
+          await delay(50); // 改用 delay
           retryCount++;
         }
 
         if (retryCount >= maxRetry) {
-          console.warn("2a. [Auth] 卡池載入超時，強制繼續執行後續邏輯");
-        } else {
-          console.log("2b. [Auth] 卡池載入完成");
+          console.warn("2. [Auth] 卡池載入超時，強制繼續");
         }
 
-        console.log("3. [Auth] 執行 createOrLoadUserDoc...");
+        console.log("3. [Auth] 執行 createOrLoadUserDoc");
         await createOrLoadUserDoc(user);
         
-        console.log("4. [Auth] 啟動 Listeners...");
         startUserListener(user);
         startTradeListener();
 
-        // 正常狀態下顯示主畫面
         authView.classList.remove('active');
         appView.classList.add('active');
         showView('opening');
         showStatus('');
-        console.log("5. [Auth] 登入流程執行完畢，進入主畫面");
+        console.log("4. [Auth] 登入流程完成");
 
       } catch (err) {
-        console.error("❌ [Auth] 登入初始化錯誤:", err);
-        showStatus('初始化使用者資料失敗。', 'error');
-        // 即使失敗也強制切換，避免卡死
+        console.error("❌ [Auth] 發生錯誤:", err);
+        showStatus('資料同步失敗', 'error');
         authView.classList.remove('active');
         appView.classList.add('active');
         showView('opening');
@@ -2598,24 +2593,26 @@
 
     (async function initApp() {
       try {
-        console.log("A. [Init] 處理 Redirect 結果...");
+        console.log("A. [Init] 取得 Redirect 結果...");
         await getRedirectResult(auth);
       } catch (err) {
         console.error('getRedirectResult failed:', err);
       }
 
       try {
-        console.log("B. [Init] 開始載入卡池...");
+        console.log("B. [Init] 載入卡池資料...");
         await loadCardPool();
-        // 💡 確保旗標在載入成功後被設為 true
-        window.isCardPoolLoaded = true; 
-        console.log("C. [Init] 卡池載入成功");
+        // 確保設定 flag
+        window.isCardPoolLoaded = true;
+        console.log("C. [Init] 卡池載入完成");
       } catch (err) {
         console.error("❌ [Init] 卡池載入失敗:", err);
+        // 即使失敗也設為 true，避免 onAuthStateChanged 那邊無限等待
+        window.isCardPoolLoaded = true; 
       }
       
       if (currentUser) {
-        console.log("D. [Init] 偵測到現有使用者，執行首頁渲染");
+        console.log("D. [Init] 執行初始渲染");
         renderBackpackView();
         renderTradeHall();
       }
