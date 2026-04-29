@@ -1240,30 +1240,33 @@
         return;
       }
 
-      const tradeOwnerUid = req.ownerUid || req.uid || '';
-      if (!tradeOwnerUid || tradeOwnerUid === currentUser.uid) {
-        showStatus('這筆交易無法接受。', 'error');
-        return;
-      }
-
-      if (!req.id) {
-        showStatus('交易資料異常。', 'error');
-        return;
-      }
-
       try {
-        const result = await acceptTradeCallable({ tradeId: req.id });
-        const data = result?.data || {};
-        if (!data.ok) {
-          throw new Error(data.message || '交易失敗。');
-        }
+        showStatus('處理交易中...', '');
+        
+        // 關鍵：取得當前使用者的 ID Token 傳給後端驗證身分
+        const idToken = await currentUser.getIdToken(true);
 
-        showStatus('交易成功！', 'ok');
-        renderTradeHall();
+        const response = await fetch('/api/trade', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tradeId: req.id,
+            idToken: idToken
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showStatus('交易成功！', 'ok');
+          // 成功後重新讀取介面 (如果有實作的話)
+          if (typeof renderTradeHall === 'function') renderTradeHall();
+        } else {
+          throw new Error(result.error || '交易失敗');
+        }
       } catch (err) {
         console.error(err);
-        const message = err?.data?.message || err?.message || '交易失敗，請稍後再試。';
-        showStatus(message, 'error');
+        showStatus(err.message, 'error');
       }
     }
 
