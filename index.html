@@ -920,13 +920,16 @@
       </div>
 
       <div id="backpackView" class="section-card" style="display:none;">
-        <div class="backpack-head">
-          <div class="mini-pill">已擁有 <strong id="ownedCountText">0</strong> / <strong id="totalCountText">0</strong></div>
-          <div class="filter-row">
-            <button class="filter-btn active" data-filter="all">全部</button>
-            <button class="filter-btn" data-filter="unowned">尚未擁有</button>
-            <button class="filter-btn" data-filter="owned">已擁有</button>
+        <div class="backpack-head" style="flex-direction: column; align-items: stretch; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div class="mini-pill">已擁有 <strong id="ownedCountText">0</strong> / <strong id="totalCountText">0</strong></div>
+            <div class="filter-row">
+              <button class="filter-btn active" data-filter="all">全部</button>
+              <button class="filter-btn" data-filter="unowned">尚未擁有</button>
+              <button class="filter-btn" data-filter="owned">已擁有</button>
+            </div>
           </div>
+          <input id="backpackSearch" class="trade-search" type="text" placeholder="搜尋卡號或名稱..." />
         </div>
         <div id="backpackGrid" class="backpack-grid"></div>
         <div id="backpackEmpty" class="empty-state" style="display:none;">沒有符合條件的卡片</div>
@@ -1183,6 +1186,7 @@
     const confirmTradeBtn = document.getElementById('confirmTradeBtn');
     const tradeConfirmText = document.getElementById('tradeConfirmText');
     const filterBtns = Array.from(document.querySelectorAll('.filter-btn'));
+    const backpackSearch = document.getElementById('backpackSearch');
 
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -1191,6 +1195,7 @@
     let userUnsub = null;
     let cardPool = [];
     let currentCards = [];
+    let backpackSearchQuery = '';
     let backpackFilter = 'all';
     let userData = {
       packs: 0,
@@ -1679,9 +1684,25 @@
     }
 
     function getBackpackFilteredCards() {
-      if (backpackFilter === 'owned') return cardPool.filter(card => isOwned(card));
-      if (backpackFilter === 'unowned') return cardPool.filter(card => !isOwned(card));
-      return cardPool;
+      let filtered = cardPool;
+
+      // 1. 先處理擁有狀態篩選
+      if (backpackFilter === 'owned') {
+        filtered = filtered.filter(card => isOwned(card));
+      } else if (backpackFilter === 'unowned') {
+        filtered = filtered.filter(card => !isOwned(card));
+      }
+
+      // 2. 再處理關鍵字搜尋
+      const query = normalizeText(backpackSearchQuery);
+      if (query) {
+        filtered = filtered.filter(card => 
+          normalizeText(card.id).includes(query) || 
+          normalizeText(card.name).includes(query)
+        );
+      }
+
+      return filtered;
     }
 
     function renderBackpack() {
@@ -2652,6 +2673,21 @@
       showView('opening');
     });
 
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        backpackFilter = btn.dataset.filter;
+        filterBtns.forEach(b => b.classList.toggle('active', b === btn));
+        renderBackpackView();
+      });
+    });
+
+    // 背包搜尋框事件
+    backpackSearch.addEventListener('input', (e) => {
+      backpackSearchQuery = e.target.value;
+      renderBackpackView(); // 每次輸入時重新渲染背包
+    });
+
+    // 原本的按鈕篩選事件保持不變
     filterBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         backpackFilter = btn.dataset.filter;
