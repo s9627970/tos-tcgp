@@ -998,6 +998,7 @@
       GoogleAuthProvider,
       signInWithPopup,
       signInWithRedirect,
+      getRedirectResult,
       signOut
     } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js';
     import {
@@ -1821,6 +1822,9 @@
       try {
         showStatus('Google 登入中...', '');
         await signInWithPopup(auth, googleProvider);
+        if (auth.currentUser) {
+          await bootstrapAuthenticatedUser(auth.currentUser);
+        }
       } catch (err) {
         console.error(err);
         if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/popup-closed-by-user') {
@@ -1832,23 +1836,14 @@
       }
     }
 
-    onAuthStateChanged(auth, async (user) => {
-      console.log('auth state changed:', user?.uid, user?.email);
+    let authBootstrapping = false;
 
-      currentUser = user || null;
-      resetOpeningView();
-
-      if (!user) {
-        console.log('no user');
-        return;
-      }
-
+    async function bootstrapAuthenticatedUser(user) {
+      if (!user || authBootstrapping) return;
+      authBootstrapping = true;
       try {
-        console.log('before createOrLoadUserDoc');
         showStatus('同步資料中...', '');
-        //await createOrLoadUserDoc(user);
-        console.log('after createOrLoadUserDoc');
-
+        await createOrLoadUserDoc(user);
         startUserListener(user);
         startTradeListener();
         authView.classList.remove('active');
@@ -1857,9 +1852,11 @@
         showStatus('');
       } catch (err) {
         console.error('init user doc failed:', err);
-        showStatus(`初始化使用者資料失敗：${err.message}`, 'error');
+        showStatus(`初始化使用者資料失敗：${err?.message || '請確認 Firestore 權限與網路連線。'}`, 'error');
+      } finally {
+        authBootstrapping = false;
       }
-    });
+    }
 
     function renderBackpackView() {
       backpackGrid.innerHTML = '';
@@ -2581,22 +2578,15 @@
         return;
       }
 
-      try {
-        showStatus('同步資料中...', '');
-        await createOrLoadUserDoc(user);
-        startUserListener(user);
-        startTradeListener();
-        authView.classList.remove('active');
-        appView.classList.add('active');
-        showView('opening');
-        showStatus('');
-      } catch (err) {
-        console.error(err);
-        showStatus('初始化使用者資料失敗。', 'error');
-      }
+      await bootstrapAuthenticatedUser(user);
     });
 
     (async function init() {
+      try {
+        await getRedirectResult(auth);
+      } catch (err) {
+        console.error('getRedirectResult failed:', err);
+      }
       await loadCardPool();
       totalCountText.textContent = String(cardPool.length);
       renderBackpackView();
