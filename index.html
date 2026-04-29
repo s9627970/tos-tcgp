@@ -983,7 +983,7 @@
       <div class="modal-head game-modal-head">
         <div>
           <h3 id="earnTitle">賺金幣</h3>
-          <p>目前金幣：<strong id="gameCoinText">0</strong>｜完成 Lv5 合成可獲得 2 金幣。</p>
+          <p>目前金幣：<strong id="gameCoinText">0</strong>｜完成 Lv5 合成可獲得 10 金幣。</p>
         </div>
         <button class="icon-btn modal-close" id="closeEarnBtn" type="button">關閉</button>
       </div>
@@ -2538,8 +2538,8 @@
               await board.animatedSwap(dragStart, targetCell);
               const coinsEarned = await board.resolveAllMatches();
               if (coinsEarned > 0) {
-                await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
-                showGame(`成功製作出 Lv5 × ${coinsEarned}，已獲得 ${coinsEarned * 2} 金幣。`);
+                await addCoins(coinsEarned * 10, `lv5_reward_${coinsEarned}`);
+                showGame(`成功製作出 Lv5 × ${coinsEarned}，已獲得 ${coinsEarned * 10} 金幣。`);
               } else {
                 showGame('');
               }
@@ -2552,8 +2552,8 @@
               if (isLeft || isRight || isBottom) {
                 const coinsEarned = await board.removeAndCollapse(si, sj);
                 if (coinsEarned > 0) {
-                  await addCoins(coinsEarned * 2, `lv5_reward_${coinsEarned}`);
-                  showGame(`移除 Lv5 成功，獲得 ${coinsEarned * 2} 金幣。`);
+                  await addCoins(coinsEarned * 10, `lv5_reward_${coinsEarned}`);
+                  showGame(`移除 Lv5 成功，獲得 ${coinsEarned * 10} 金幣。`);
                 } else {
                   showGame('');
                 }
