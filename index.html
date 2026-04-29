@@ -1370,8 +1370,6 @@
             </div>
           </div>
           <div class="trade-card-footer">
-            <div class="mini-pill">送出卡：<strong>${req.giveCardId}</strong></div>
-            <div class="mini-pill">想要卡：<strong>${req.wantCardId}</strong></div>
             ${isMine
               ? `<div class="trade-card-actions"><button class="icon-btn" type="button" data-delete-trade="${req.id}">刪除請求</button></div>`
               : `<div class="trade-card-actions"><button class="icon-btn primary" type="button" data-accept-trade="${req.id}">進行交易</button></div>`}
