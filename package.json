@@ -1,17 +1,17 @@
 {
   "name": "tos-tcgp-vercel-api",
   "version": "1.0.0",
-  "description": "TOS TCGP 交易系統後端 - 部署於 Vercel",
+  "description": "TOS TCGP 交易系統後端 - 部署於 Vercel (Node 24)",
   "main": "api/trade.js",
   "scripts": {
     "start": "node api/trade.js",
     "vercel-build": "echo 'No build step required'"
   },
   "dependencies": {
-    "firebase-admin": "^11.11.1"
+    "firebase-admin": "^13.0.0"
   },
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   },
   "keywords": [],
   "author": "",
