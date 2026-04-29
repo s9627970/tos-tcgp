@@ -989,11 +989,12 @@
     </div>
   </div>
 
-  <div id="notice-modal" class="modal">
-    <div class="modal-content" style="max-width: 360px; text-align: center; border: 1px solid var(--border); background: var(--panel-strong);">
-      <h2 id="notice-title" style="margin-top: 0; font-size: 1.5rem;">提示</h2>
+  <div id="notice-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="noticeBackdrop"></div>
+    <div class="modal-card" style="max-width: 360px; text-align: center; border: 1px solid var(--border); background: var(--panel-strong); position: relative; z-index: 1001; padding: 30px;">
+      <h3 id="notice-title" style="margin-top: 0; font-size: 1.5rem;">提示</h3>
       <p id="notice-message" style="font-size: 1.1rem; line-height: 1.6; margin: 20px 0; color: var(--text);"></p>
-      <button class="btn" onclick="closeNotice()" style="width: 100%; background: var(--indigo); color: white; padding: 12px; border-radius: 8px; cursor: pointer;">確定</button>
+      <button class="icon-btn primary" onclick="closeNotice()" style="width: 100%;">確定</button>
     </div>
   </div>
 
