@@ -990,6 +990,14 @@
   </div>
   </div>
 
+  <div id="notice-modal" class="modal">
+    <div class="modal-content" style="max-width: 360px; text-align: center; border: 1px solid var(--border); background: var(--panel-strong);">
+      <h2 id="notice-title" style="margin-top: 0; font-size: 1.5rem;">提示</h2>
+      <p id="notice-message" style="font-size: 1.1rem; line-height: 1.6; margin: 20px 0; color: var(--text);"></p>
+      <button class="btn" onclick="closeNotice()" style="width: 100%; background: var(--indigo); color: white; padding: 12px; border-radius: 8px; cursor: pointer;">確定</button>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js';
     import {
@@ -1182,6 +1190,25 @@
       renderTradeModal();
     }
 
+    // 顯示自定義提示視窗
+    function showNotice(title, msg, isError = false) {
+      const modal = document.getElementById('notice-modal');
+      const titleEl = document.getElementById('notice-title');
+      const msgEl = document.getElementById('notice-message');
+      
+      titleEl.textContent = title;
+      // 如果是錯誤，標題顯示紅色；成功則顯示主題青色
+      titleEl.style.color = isError ? '#ff5555' : 'var(--cyan)';
+      msgEl.textContent = msg;
+      
+      modal.classList.add('active');
+    }
+
+    // 關閉提示視窗
+    function closeNotice() {
+      document.getElementById('notice-modal').classList.remove('active');
+    }
+
     function hideTradeModal() {
       tradeModal.classList.add('hidden');
       tradeModal.setAttribute('aria-hidden', 'true');
@@ -1240,15 +1267,18 @@
 
     async function acceptTradeRequest(req) {
       if (!currentUser) {
-        showStatus('請先登入。', 'error');
+        showNotice('權限不足', '請先登入後再進行交易。', true);
         return;
       }
 
       try {
-        showStatus('處理交易中...', '');
+        // 顯示轉圈圈或狀態文字
+        showStatus('正在通訊中...', '');
         
+        // 取得金鑰
         const idToken = await currentUser.getIdToken(true);
 
+        // 呼叫 Vercel API
         const response = await fetch('/api/trade', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1261,14 +1291,25 @@
         const result = await response.json();
 
         if (response.ok) {
-          showStatus('交易成功！', 'ok');
+          // --- 成功時 ---
+          showNotice('交易成功', '卡片交換已完成，快去背包看看吧！');
+          
+          // 隱藏原本的交易詳情視窗
+          hideTradeModal();
+          
+          // 重新整理大廳列表
           if (typeof renderTradeHall === 'function') renderTradeHall();
         } else {
-          throw new Error(result.error || '交易失敗');
+          // --- 失敗時（例如：數量不足） ---
+          // 這裡的 result.error 就是從 Vercel trade.js 傳回的錯誤字串
+          throw new Error(result.error || '交易失敗，請稍後再試。');
         }
       } catch (err) {
-        console.error(err);
-        showStatus(err.message, 'error');
+        console.error('交易失敗詳情:', err);
+        // 在網頁彈窗顯示具體原因
+        showNotice('交易無法完成', err.message, true);
+      } finally {
+        showStatus(''); // 清除狀態列文字
       }
     }
 
