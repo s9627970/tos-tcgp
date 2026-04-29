@@ -2532,48 +2532,73 @@
     });
 
     // 💡 修復處 3：優化 onAuthStateChanged 的執行順序與錯誤捕捉邏輯
-    console.log(">>> [Debug] 腳本開始執行 (Script Loaded)");
+    // 1. 輔助函式：給 Promise 加上逾時功能
+    const withTimeout = (promise, ms) => {
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('操作逾時 (Timeout)')), ms)
+      );
+      return Promise.race([promise, timeout]);
+    };
 
-    onAuthStateChanged(auth, async (user) => {
-      console.log(">>> [Auth] 狀態變更偵測中... User對象為:", user);
+    // 2. 初始化應用程式
+    (async function initApp() {
+      console.log(">>> [Init] initApp 啟動");
+
+      // 【重要】先載入卡池，不要等 Redirect
+      try {
+        console.log("C. [Init] 開始載入卡池...");
+        await loadCardPool();
+        window.isCardPoolLoaded = true;
+        console.log("D. [Init] 卡池載入完成");
+      } catch (err) {
+        console.error("❌ [Init] 載入卡池失敗:", err);
+        window.isCardPoolLoaded = true; // 即使失敗也要放行，避免 Auth 區塊等死
+      }
+
+      // 處理 Redirect 登入結果，加上 3 秒逾時保護
+      try {
+        console.log("A. [Init] 檢查 Redirect 結果...");
+        // 如果 3 秒沒反應就跳過，不影響玩家進遊戲
+        await withTimeout(getRedirectResult(auth), 3000); 
+        console.log("B. [Init] Redirect 檢查完成");
+      } catch (err) {
+        console.warn('⚠️ [Init] Redirect 檢查跳過或逾時 (可能不影響登入):', err.message);
+      }
       
+      if (currentUser) {
+        console.log("E. [Init] 執行初始渲染");
+        renderBackpackView();
+        renderTradeHall();
+      }
+    })();
+
+    // 3. 監聽登入狀態
+    onAuthStateChanged(auth, async (user) => {
+      console.log(">>> [Auth] 狀態變更偵測:", user ? "已登入" : "未登入");
       currentUser = user || null;
       resetOpeningView();
 
       if (!user) {
-        console.log(">>> [Auth] 目前為【未登入】狀態");
-        if (userUnsub) userUnsub();
-        if (tradeUnsub) tradeUnsub();
-        userUnsub = null;
-        tradeUnsub = null;
-        tradeRequests = [];
-        userData = { packs: 0, coins: 0, ownedCounts: {}, lastRewardKey: '' };
+        // ... (原本處理未登入的邏輯，保持不變)
         authView.classList.add('active');
         appView.classList.remove('active');
-        hideShop();
-        hideGame();
-        hideTradeModal();
         showStatus('');
         return;
       }
 
-      // 以下是登入後才會執行的邏輯
       try {
-        console.log("1. [Auth] 偵測到登入，準備同步資料...");
         showStatus('同步資料中...', '');
-
-        let retryCount = 0;
-        const maxRetry = 100; 
-        while (!window.isCardPoolLoaded && retryCount < maxRetry) {
-          if (retryCount % 20 === 0) console.log("...正在等待卡池 (Retry: " + retryCount + ")");
-          await delay(50);
-          retryCount++;
+        
+        // 等待卡池，最多等 5 秒
+        let waitTime = 0;
+        while (!window.isCardPoolLoaded && waitTime < 5000) {
+          await new Promise(r => setTimeout(r, 100));
+          waitTime += 100;
         }
 
-        console.log("2. [Auth] 準備執行 createOrLoadUserDoc");
+        console.log("1. [Auth] 執行 createOrLoadUserDoc");
         await createOrLoadUserDoc(user);
         
-        console.log("3. [Auth] 啟動 Listeners");
         startUserListener(user);
         startTradeListener();
 
@@ -2581,40 +2606,14 @@
         appView.classList.add('active');
         showView('opening');
         showStatus('');
-        console.log("4. [Auth] 登入流程完全結束，進入主畫面");
-
+        console.log("2. [Auth] 登入流程結束");
       } catch (err) {
-        console.error("❌ [Auth] 流程中斷錯誤:", err);
-        showStatus('初始化失敗', 'error');
+        console.error("❌ [Auth] 錯誤:", err);
+        authView.classList.remove('active');
+        appView.classList.add('active');
+        showView('opening');
       }
     });
-
-    (async function initApp() {
-      console.log(">>> [Init] initApp 立即執行函式啟動");
-      try {
-        console.log("A. [Init] 檢查 Redirect 結果...");
-        await getRedirectResult(auth);
-        console.log("B. [Init] Redirect 檢查完成");
-      } catch (err) {
-        console.error('❌ [Init] getRedirectResult 失敗:', err);
-      }
-
-      try {
-        console.log("C. [Init] 開始載入卡池...");
-        await loadCardPool();
-        window.isCardPoolLoaded = true;
-        console.log("D. [Init] 卡池載入完成 Flag = true");
-      } catch (err) {
-        console.error("❌ [Init] loadCardPool 失敗:", err);
-        window.isCardPoolLoaded = true; 
-      }
-      
-      if (currentUser) {
-        console.log("E. [Init] 偵測到已有登入 Session，執行渲染");
-        renderBackpackView();
-        renderTradeHall();
-      }
-    })();
   </script>
 </body>
 </html>
