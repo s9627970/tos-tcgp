@@ -444,7 +444,7 @@
     .game-modal-head p strong {
       color: #fff;
     }
-    @media (max-width: 300px) {
+    @media (max-width: 680px) {
       #mergeGameCanvas { height: 78vh; min-height: 560px; }
       .trade-list { grid-template-columns: 1fr; }
       .trade-split-grid { grid-template-columns: 1fr; }
@@ -483,8 +483,9 @@
     }
     .trade-list {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 16px;
+      /* 建議：將 320px 改為 240px 或 260px */
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
+      gap: 12px; /* 間距也稍微縮小一點 */
     }
     .trade-card {
       position: relative;
@@ -492,10 +493,10 @@
       background:
         linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04)),
         rgba(255,255,255,0.05);
-      border-radius: 22px;
-      padding: 16px;
+      border-radius: 16px;
+      padding: 12px;
+      gap: 10px;
       display: grid;
-      gap: 14px;
       transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
       box-shadow: 0 10px 30px rgba(0,0,0,0.18);
       overflow: hidden;
@@ -538,13 +539,13 @@
       min-width: 0;
     }
     .trade-owner strong {
-      font-size: 15px;
+      font-size: 13px;
       word-break: break-all;
       line-height: 1.35;
     }
     .trade-owner span {
       color: var(--muted);
-      font-size: 12px;
+      font-size: 11px;
       word-break: break-all;
     }
     .trade-badge {
@@ -776,7 +777,7 @@
     @media (max-width: 1100px) {
       .results-grid, .backpack-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .stats-grid { grid-template-columns: 1fr; }
-      .trade-list { grid-template-columns: 1fr; }
+      .trade-list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
       .trade-split-grid { grid-template-columns: 1fr; }
       .trade-select-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
