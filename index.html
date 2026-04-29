@@ -344,7 +344,6 @@
       font-size: 14px;
     }
 
-
     .modal {
       position: fixed;
       inset: 0;
@@ -360,6 +359,7 @@
       background: rgba(0,0,0,0.58);
       backdrop-filter: blur(4px);
     }
+    /* 這裡加上全域的對話框限制，確保內容太長時可以正常上下滑動 */
     .modal-card {
       position: relative;
       width: min(520px, 100%);
@@ -370,6 +370,8 @@
       padding: 20px;
       backdrop-filter: blur(18px);
       z-index: 1;
+      max-height: 90vh;
+      overflow-y: auto;
     }
     .modal-head {
       display: flex;
@@ -389,6 +391,7 @@
       line-height: 1.6;
     }
     .modal-close { flex: 0 0 auto; }
+    
     .shop-item {
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.05);
@@ -444,12 +447,6 @@
     .game-modal-head p strong {
       color: #fff;
     }
-    @media (max-width: 680px) {
-      #mergeGameCanvas { height: 78vh; min-height: 560px; }
-      .trade-list { grid-template-columns: 1fr; }
-      .trade-split-grid { grid-template-columns: 1fr; }
-      .trade-select-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
 
     .trade-hall-head {
       display: flex;
@@ -483,9 +480,8 @@
     }
     .trade-list {
       display: grid;
-      /* 建議：將 320px 改為 240px 或 260px */
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
-      gap: 12px; /* 間距也稍微縮小一點 */
+      gap: 12px; 
     }
     .trade-card {
       position: relative;
@@ -626,7 +622,6 @@
       gap: 8px;
       align-items: center;
       flex-wrap: wrap;
-      margin-left:0 auto;
     }
     .trade-empty {
       margin-top: 6px;
@@ -775,20 +770,61 @@
       margin-top: 14px;
     }
 
+    /* =============================================
+      RWD / 手機版響應式優化 Media Queries
+      =============================================
+    */
     @media (max-width: 1100px) {
-      .results-grid, .backpack-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .stats-grid { grid-template-columns: 1fr; }
       .trade-list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
       .trade-split-grid { grid-template-columns: 1fr; }
-      .trade-select-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .trade-select-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+      .results-grid, .backpack-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
     }
+
     @media (max-width: 680px) {
-      .results-grid, .backpack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      /* 遊戲區塊調整 */
+      #mergeGameCanvas { height: 78vh; min-height: 560px; }
       .auth-actions { flex-direction: column; }
-      .trade-select-grid { grid-template-columns: 1fr; }
+      .trade-list { grid-template-columns: 1fr; }
+
+      /* 1 & 2. 抽到的卡片與背包：5 張一排 */
+      .results-grid, .backpack-grid { 
+        grid-template-columns: repeat(5, minmax(0, 1fr)); 
+        gap: 4px; 
+      }
+      /* 縮小卡片內的字體與間距避免破版 */
+      .bp-name, .result-card .info { font-size: 10px; padding: 4px; min-height: auto; line-height: 1.1; word-break: break-all; }
+      .bp-no { font-size: 9px; margin-top: 2px; }
+      .bp-badge { font-size: 9px; padding: 2px 4px; left: 2px; top: 2px; transform: scale(0.85); transform-origin: top left; }
+      .bp-card, .result-card { border-radius: 6px; }
+
+      /* 3. 商店頁面：排列整齊置中 */
+      .shop-item { 
+        flex-direction: column; 
+        text-align: center; 
+        gap: 12px; 
+        padding: 14px;
+      }
+      .shop-item-action { align-items: center; width: 100%; min-width: unset; }
+      .shop-item-action button { width: 100%; }
+
+      /* 4. 交易請求頁面優化 */
+      .trade-split-grid { grid-template-columns: 1fr; gap: 16px; }
+      .trade-select-grid { 
+        grid-template-columns: repeat(5, minmax(0, 1fr)); 
+        gap: 4px; 
+        max-height: 40vh; /* 確保內部區域可滑動 */
+      }
+      .trade-choice .meta { padding: 4px; }
+      .trade-choice .meta .name { font-size: 10px; line-height: 1.1; word-break: break-all; }
+      .trade-choice .meta .id { font-size: 9px; }
+      .trade-choice .meta .count { font-size: 9px; margin-top: 2px; }
+      .trade-choice { border-radius: 6px; }
     }
+
     @media (max-width: 460px) {
-      .results-grid, .backpack-grid { grid-template-columns: 1fr; }
+      /* 確保在極小螢幕下維持佈局 */
       .pack-wrap { width: min(86vw, 300px); }
     }
   </style>
@@ -888,7 +924,9 @@
         <div id="tradeRequestList" class="trade-list"></div>
         <div id="tradeRequestEmpty" class="empty-state trade-empty" style="display:none;">目前沒有交易請求</div>
       </div>
-    </div> <div id="shopModal" class="modal hidden" aria-hidden="true">
+    </div> 
+    
+    <div id="shopModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" id="shopBackdrop"></div>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
       <div class="modal-head">
@@ -911,6 +949,7 @@
       <div id="shopStatus" class="status"></div>
     </div>
   </div>
+  
   <div id="earnModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" id="earnBackdrop"></div>
     <div class="modal-card game-modal-card" role="dialog" aria-modal="true" aria-labelledby="earnTitle">
@@ -1001,8 +1040,6 @@
   </div>
 
   </div>
-
-  
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js';
@@ -1136,7 +1173,7 @@
     let selectedWantCardId = '';
     let tradeLeftSearch = '';
     let tradeRightSearch = '';
-    let isCardPoolLoaded = false; // 💡 修復處 2：追蹤卡池加載狀態
+    let isCardPoolLoaded = false; 
 
     function wait(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
@@ -1152,7 +1189,6 @@
       backpackView.style.display = name === 'backpack' ? 'block' : 'none';
       tradeHallView.style.display = name === 'trade' ? 'block' : 'none';
     }
-
 
     function showShop(message = '') {
       shopStatus.textContent = message;
@@ -1196,7 +1232,6 @@
       renderTradeModal();
     }
 
-    // --- 讓函式變成全域，這樣 HTML 的 onclick 才抓得到 ---
     window.showNotice = function(title, msg, isError = false) {
       const modal = document.getElementById('notice-modal');
       const titleEl = document.getElementById('notice-title');
@@ -1205,7 +1240,6 @@
       if (!modal || !titleEl || !msgEl) return;
 
       titleEl.textContent = title;
-      // 錯誤用紅色，成功用青藍色
       titleEl.style.color = isError ? '#ff5555' : 'var(--cyan)';
       msgEl.textContent = msg;
       
@@ -1282,13 +1316,9 @@
       }
 
       try {
-        // 顯示轉圈圈或狀態文字
         showStatus('正在通訊中...', '');
-        
-        // 取得金鑰
         const idToken = await currentUser.getIdToken(true);
 
-        // 呼叫 Vercel API
         const response = await fetch('/api/trade', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1301,25 +1331,17 @@
         const result = await response.json();
 
         if (response.ok) {
-          // --- 成功時 ---
           showNotice('交易成功', '卡片交換已完成，快去背包看看吧！');
-          
-          // 隱藏原本的交易詳情視窗
           hideTradeModal();
-          
-          // 重新整理大廳列表
           if (typeof renderTradeHall === 'function') renderTradeHall();
         } else {
-          // --- 失敗時（例如：數量不足） ---
-          // 這裡的 result.error 就是從 Vercel trade.js 傳回的錯誤字串
           throw new Error(result.error || '交易失敗，請稍後再試。');
         }
       } catch (err) {
         console.error('交易失敗詳情:', err);
-        // 在網頁彈窗顯示具體原因
         showNotice('交易無法完成', err.message, true);
       } finally {
-        showStatus(''); // 清除狀態列文字
+        showStatus(''); 
       }
     }
 
@@ -1568,7 +1590,7 @@
           { id: '0005', name: '肖恩' }
         ];
       }
-      isCardPoolLoaded = true; // 標記為完成載入
+      isCardPoolLoaded = true;
       totalCountText.textContent = String(cardPool.length);
     }
 
@@ -1868,22 +1890,14 @@
       }
     }
 
-    // 登入按鈕點擊事件
     async function handleGoogleLogin() {
-      // 1. 立即定義 provider
       const googleProvider = new GoogleAuthProvider();
-
       try {
-        // 2. 💡 關鍵：立即呼叫彈窗，不要在前面放任何 await 邏輯
-        // 這樣瀏覽器才會認定這是由使用者點擊直接觸發的
         const result = await signInWithPopup(auth, googleProvider);
-        
         console.log("✅ 登入成功:", result.user.email);
         showStatus('登入成功，同步中...', '');
-        
       } catch (error) {
         console.error("❌ 登入失敗:", error);
-        
         if (error.code === 'auth/popup-blocked') {
           alert('登入視窗被瀏覽器攔截，請點擊瀏覽器網址列右側的圖標以允許彈出視窗，然後再試一次。');
           showStatus('請允許彈出視窗後重試', 'error');
@@ -1922,7 +1936,6 @@
       totalCountText2.textContent = String(cardPool.length);
     }
 
-    // --- Merge Game Logic (Unchanged) ---
     const mergeGame = (() => {
       const GRID_SIZE = 6;
       const MARGIN = 5;
@@ -2536,7 +2549,6 @@
       };
     })();
 
-    // --- DOM Event Listeners ---
     googleLoginBtn.addEventListener('click', handleGoogleLogin);
     logoutBtn.addEventListener('click', async () => {
       try {
@@ -2596,8 +2608,6 @@
       });
     });
 
-    // 💡 修復處 3：優化 onAuthStateChanged 的執行順序與錯誤捕捉邏輯
-    // 1. 輔助函式：給 Promise 加上逾時功能
     const withTimeout = (promise, ms) => {
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('操作逾時 (Timeout)')), ms)
@@ -2605,11 +2615,9 @@
       return Promise.race([promise, timeout]);
     };
 
-    // 2. 初始化應用程式
     (async function initApp() {
       console.log(">>> [Init] initApp 啟動");
 
-      // 【重要】先載入卡池，不要等 Redirect
       try {
         console.log("C. [Init] 開始載入卡池...");
         await loadCardPool();
@@ -2617,7 +2625,7 @@
         console.log("D. [Init] 卡池載入完成");
       } catch (err) {
         console.error("❌ [Init] 載入卡池失敗:", err);
-        window.isCardPoolLoaded = true; // 即使失敗也要放行，避免 Auth 區塊等死
+        window.isCardPoolLoaded = true; 
       }
       
       if (currentUser) {
@@ -2627,14 +2635,12 @@
       }
     })();
 
-    // 3. 監聽登入狀態
     onAuthStateChanged(auth, async (user) => {
       console.log(">>> [Auth] 狀態變更偵測:", user ? "已登入" : "未登入");
       currentUser = user || null;
       resetOpeningView();
 
       if (!user) {
-        // ... (原本處理未登入的邏輯，保持不變)
         authView.classList.add('active');
         appView.classList.remove('active');
         showStatus('');
@@ -2644,7 +2650,6 @@
       try {
         showStatus('同步資料中...', '');
         
-        // 等待卡池，最多等 5 秒
         let waitTime = 0;
         while (!window.isCardPoolLoaded && waitTime < 5000) {
           await new Promise(r => setTimeout(r, 100));
