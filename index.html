@@ -432,6 +432,7 @@
       max-height: 95vh;     /* 限制最大高度為螢幕的 95% */
       overflow-y: auto;     /* 如果內容超出則顯示捲軸 */
       display: flex;
+      border-radius: 24px;
       flex-direction: column;
     }
 
@@ -841,6 +842,18 @@
       /* 確保在極小螢幕下維持佈局 */
       .pack-wrap { width: min(86vw, 300px); }
     }
+
+    /* 針對「矮視窗」或是「橫向螢幕」的特殊處理 */
+    @media (max-height: 600px) {
+      #mergeGameCanvas {
+        height: 50vh;
+        min-height: 250px;
+      }
+      .game-modal-card {
+        margin-top: 20px; /* 確保頂部不會貼死 */
+      }
+    }
+
   </style>
 </head>
 <body>
