@@ -803,7 +803,7 @@
           <p>請使用 Google 帳號登入，登入後才可以抽卡。<br>且每天 GMT+8 早上 5 點會自動發放 5 包卡包。</p>
 
           <div class="auth-actions">
-            <button class="icon-btn primary" id="googleLoginBtn">使用 Google 登入</button>
+            <button class="icon-btn primary" id="googleLoginBtn" type="button">使用 Google 登入</button>
           </div>
 
           <div id="authStatus" class="status"></div>
@@ -886,8 +886,7 @@
         <div id="tradeRequestList" class="trade-list"></div>
         <div id="tradeRequestEmpty" class="empty-state trade-empty" style="display:none;">目前沒有交易請求</div>
       </div>
-
-  <div id="shopModal" class="modal hidden" aria-hidden="true">
+    </div> <div id="shopModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" id="shopBackdrop"></div>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
       <div class="modal-head">
@@ -988,6 +987,7 @@
         <button class="icon-btn primary" id="confirmTradeBtn" type="button">確認交易</button>
       </div>
     </div>
+  </div>
   </div>
 
   <script type="module">
@@ -1120,6 +1120,7 @@
     let selectedWantCardId = '';
     let tradeLeftSearch = '';
     let tradeRightSearch = '';
+    let isCardPoolLoaded = false; // 💡 修復處 2：追蹤卡池加載狀態
 
     function wait(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
@@ -1244,7 +1245,6 @@
       try {
         showStatus('處理交易中...', '');
         
-        // 關鍵：取得當前使用者的 ID Token 傳給後端驗證身分
         const idToken = await currentUser.getIdToken(true);
 
         const response = await fetch('/api/trade', {
@@ -1260,7 +1260,6 @@
 
         if (response.ok) {
           showStatus('交易成功！', 'ok');
-          // 成功後重新讀取介面 (如果有實作的話)
           if (typeof renderTradeHall === 'function') renderTradeHall();
         } else {
           throw new Error(result.error || '交易失敗');
@@ -1518,6 +1517,7 @@
           { id: '0005', name: '肖恩' }
         ];
       }
+      isCardPoolLoaded = true; // 標記為完成載入
       totalCountText.textContent = String(cardPool.length);
     }
 
@@ -1820,6 +1820,7 @@
     async function handleGoogleLogin() {
       try {
         showStatus('Google 登入中...', '');
+        // 嚴格依照要求：只使用 signInWithRedirect
         await signInWithRedirect(auth, googleProvider);
       } catch (err) {
         console.error(err);
@@ -1854,7 +1855,7 @@
       totalCountText2.textContent = String(cardPool.length);
     }
 
-
+    // --- Merge Game Logic (Unchanged) ---
     const mergeGame = (() => {
       const GRID_SIZE = 6;
       const MARGIN = 5;
@@ -2468,6 +2469,7 @@
       };
     })();
 
+    // --- DOM Event Listeners ---
     googleLoginBtn.addEventListener('click', handleGoogleLogin);
     logoutBtn.addEventListener('click', async () => {
       try {
@@ -2527,6 +2529,7 @@
       });
     });
 
+    // 💡 修復處 3：優化 onAuthStateChanged 的執行順序與錯誤捕捉邏輯
     onAuthStateChanged(auth, async (user) => {
       currentUser = user || null;
       resetOpeningView();
@@ -2549,20 +2552,34 @@
 
       try {
         showStatus('同步資料中...', '');
+
+        // 確保 cardPool 已經加載完畢再進行同步，避免卡片數量無法正確初始化
+        while (!isCardPoolLoaded) {
+          await wait(50);
+        }
+
         await createOrLoadUserDoc(user);
         startUserListener(user);
         startTradeListener();
+
+        // 正常狀態下顯示主畫面
         authView.classList.remove('active');
         appView.classList.add('active');
         showView('opening');
         showStatus('');
+
       } catch (err) {
         console.error(err);
-        showStatus('初始化使用者資料失敗。', 'error');
+        showStatus('初始化使用者資料失敗。如果您尚未設定好 Firestore，這會阻擋交易流程，但仍為您載入介面。', 'error');
+        // 強制切換畫面，避免因為權限或連線報錯導致玩家卡在登入頁面
+        authView.classList.remove('active');
+        appView.classList.add('active');
+        showView('opening');
       }
     });
 
-    (async function init() {
+    // 💡 修復處 4：確保優先處理 Redirect 結果
+    (async function initApp() {
       try {
         await getRedirectResult(auth);
       } catch (err) {
@@ -2570,9 +2587,12 @@
       }
 
       await loadCardPool();
-      totalCountText.textContent = String(cardPool.length);
-      renderBackpackView();
-      renderTradeHall();
+      
+      // 如果 user 提早解析完畢，在這裡手動觸發一次渲染
+      if (currentUser) {
+        renderBackpackView();
+        renderTradeHall();
+      }
     })();
   </script>
 </body>
