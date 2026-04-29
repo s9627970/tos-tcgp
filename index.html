@@ -1194,26 +1194,28 @@
       renderTradeModal();
     }
 
-    // 顯示自定義提示視窗
-    function showNotice(title, msg, isError = false) {
+    // --- 讓函式變成全域，這樣 HTML 的 onclick 才抓得到 ---
+    window.showNotice = function(title, msg, isError = false) {
       const modal = document.getElementById('notice-modal');
       const titleEl = document.getElementById('notice-title');
       const msgEl = document.getElementById('notice-message');
       
+      if (!modal || !titleEl || !msgEl) return;
+
       titleEl.textContent = title;
       // 錯誤用紅色，成功用青藍色
       titleEl.style.color = isError ? '#ff5555' : 'var(--cyan)';
       msgEl.textContent = msg;
       
-      // 配合你原本的設定：移除 hidden class 來顯示
       modal.classList.remove('hidden');
-    }
+    };
 
-    // 關閉提示視窗
-    function closeNotice() {
-      // 配合你原本的設定：加入 hidden class 來隱藏
-      document.getElementById('notice-modal').classList.add('hidden');
-    }
+    window.closeNotice = function() {
+      const modal = document.getElementById('notice-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+      }
+    };
 
     function hideTradeModal() {
       tradeModal.classList.add('hidden');
