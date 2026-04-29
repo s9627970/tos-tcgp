@@ -997,8 +997,6 @@
       onAuthStateChanged,
       GoogleAuthProvider,
       signInWithPopup,
-      signInWithRedirect,
-      getRedirectResult,
       signOut
     } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js';
     import {
@@ -1822,39 +1820,9 @@
       try {
         showStatus('Google 登入中...', '');
         await signInWithPopup(auth, googleProvider);
-        if (auth.currentUser) {
-          await bootstrapAuthenticatedUser(auth.currentUser);
-        }
       } catch (err) {
         console.error(err);
-        if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/popup-closed-by-user') {
-          showStatus('彈出視窗被阻擋，正在改用重新導向登入...', '');
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        }
         showStatus(err?.message || 'Google 登入失敗。', 'error');
-      }
-    }
-
-    let authBootstrapping = false;
-
-    async function bootstrapAuthenticatedUser(user) {
-      if (!user || authBootstrapping) return;
-      authBootstrapping = true;
-      try {
-        showStatus('同步資料中...', '');
-        await createOrLoadUserDoc(user);
-        startUserListener(user);
-        startTradeListener();
-        authView.classList.remove('active');
-        appView.classList.add('active');
-        showView('opening');
-        showStatus('');
-      } catch (err) {
-        console.error('init user doc failed:', err);
-        showStatus(`初始化使用者資料失敗：${err?.message || '請確認 Firestore 權限與網路連線。'}`, 'error');
-      } finally {
-        authBootstrapping = false;
       }
     }
 
@@ -2557,6 +2525,35 @@
         renderBackpackView();
       });
     });
+
+    async function bootstrapAuthenticatedUser(user) {
+      if (!user || authBootstrapping) return;
+      authBootstrapping = true;
+      currentUser = user;
+
+      // 先切換畫面，避免 Firestore 同步失敗時卡在登入頁
+      authView.classList.remove('active');
+      appView.classList.add('active');
+      showView('opening');
+      showStatus('登入成功，正在同步雲端資料...', '');
+
+      try {
+        await createOrLoadUserDoc(user);
+      } catch (err) {
+        console.error('init user doc failed:', err);
+        showStatus(`已登入，但雲端資料同步失敗：${err?.message || '請確認 Firestore 權限與網路連線。'}`, 'error');
+      }
+
+      try {
+        startUserListener(user);
+        startTradeListener();
+      } catch (err) {
+        console.error('start listener failed:', err);
+      }
+
+      showStatus('');
+      authBootstrapping = false;
+    }
 
     onAuthStateChanged(auth, async (user) => {
       currentUser = user || null;
