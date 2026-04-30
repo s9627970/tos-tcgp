@@ -1432,40 +1432,51 @@
         } else {
           leaderboardList.innerHTML = ''; 
           
-          let displayRank = 1;      // 顯示在畫面上的排名
-          let actualCounter = 1;    // 實際處理到的第幾個人
+          let displayRank = 1;      // 實際顯示在畫面的排名數字
           let lastScore = null;     // 記錄上一個人的分數
+          let counter = 0;          // 迴圈跑到了第幾個人 (0-based)
 
-          topSnapshot.forEach((docSnap) => {
+          querySnapshot.forEach((docSnap) => {
+            counter++; // 進入迴圈先累加計數
+            
             const data = docSnap.data();
             const name = data.displayName || data.email?.split('@')[0] || '匿名玩家';
-            const score = data[sortField] || 0;
-
-            // --- 並列排名邏輯 ---
-            if (lastScore !== null && score < lastScore) {
-              // 當前分數比上一個人低，更新顯示排名為目前的總計人數
-              displayRank = actualCounter;
-            }
-            // 如果 score === lastScore，則 displayRank 不變，達成「並列」效果
-            // ------------------
-
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'leaderboard-item';
             
-            if (currentUser && docSnap.id === currentUser.uid) {
-              itemDiv.style.border = '1px solid var(--cyan)';
-              itemDiv.style.background = 'rgba(103, 232, 249, 0.15)';
+            // 強制轉換為數字，避免 Firestore 傳回字串導致比較失敗
+            const score = Number(data[sortField] || 0);
+
+            // --- 關鍵並列排名邏輯 ---
+            if (lastScore !== null) {
+              if (score < lastScore) {
+                // 分數比前一個人低，排名跳到當前的總人數位置
+                displayRank = counter;
+              } 
+              // 如果 score === lastScore，則 displayRank 保持不變，達成並列
+            } else {
+              // 第一筆資料，排名一定是 1
+              displayRank = 1;
+            }
+            // ----------------------
+
+            // 只渲染前 50 名到 HTML
+            if (counter <= 50) {
+              const itemDiv = document.createElement('div');
+              itemDiv.className = 'leaderboard-item';
+              
+              if (currentUser && docSnap.id === currentUser.uid) {
+                itemDiv.style.border = '1px solid var(--cyan)';
+                itemDiv.style.background = 'rgba(103, 232, 249, 0.15)';
+              }
+
+              itemDiv.innerHTML = `
+                <div class="rank-number">#${displayRank}</div>
+                <div class="player-name">${name}</div>
+                <div class="player-score">${score} ${unit}</div>
+              `;
+              leaderboardList.appendChild(itemDiv);
             }
 
-            itemDiv.innerHTML = `
-              <div class="rank-number">#${displayRank}</div>
-              <div class="player-name">${name}</div>
-              <div class="player-score">${score} ${unit}</div>
-            `;
-            leaderboardList.appendChild(itemDiv);
-
-            lastScore = score;    // 更新上一次分數
-            actualCounter++;       // 總計人數加 1
+            lastScore = score; // 更新最後一次分數供下一次迴圈比對
           });
         }
 
