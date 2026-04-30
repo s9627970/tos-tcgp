@@ -861,6 +861,16 @@
       font-weight: bold;
       color: #ffd700; 
     }
+    /* 自己的排名區塊樣式 */
+    .my-rank-container {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 2px dashed rgba(255, 255, 255, 0.15);
+    }
+    .my-rank-item {
+      background: rgba(103, 232, 249, 0.12);
+      border: 1px solid rgba(103, 232, 249, 0.3);
+    }
 
 
     /* =============================================
@@ -1083,6 +1093,14 @@
       <div class="leaderboard-list" id="leaderboardList">
         <div class="loading-text" style="text-align: center; padding: 20px;">載入中...</div>
       </div>
+
+      <div class="my-rank-container" id="myRankContainer" style="display: none;">
+         <div class="leaderboard-item my-rank-item">
+            <div class="rank-number" id="myRankNumber">-</div>
+            <div class="player-name">我的排名</div>
+            <div class="player-score" id="myRankScore">-</div>
+         </div>
+      </div>
       
     </div>
   </div>
@@ -1235,7 +1253,10 @@
       runTransaction,
       getDocs,
       limit,
-      updateDoc
+      updateDoc,
+      where,
+      getDoc,
+      getCountFromServer
     } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js';
     import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-functions.js';
 
@@ -1387,50 +1408,82 @@
     async function loadLeaderboard(type) {
       leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px;">載入中...</div>';
       
+      const myRankContainer = document.getElementById('myRankContainer');
+      const myRankNumber = document.getElementById('myRankNumber');
+      const myRankScore = document.getElementById('myRankScore');
+
+      if (myRankContainer) myRankContainer.style.display = 'none';
+      
       try {
-        // ⚠️ 關鍵設定：根據 type 決定要用哪個資料庫欄位排序
-        // 假設金幣欄位叫 'coins'，圖鑑總數欄位叫 'collectionCount'
         const sortField = type === 'coins' ? 'coins' : 'collectionCount'; 
+        const unit = type === 'coins' ? '金幣' : '種';
         
-        // 建立 Firebase 查詢 (抓前 50 名)
-        // 記得將 USER_COLLECTION 換成你的使用者集合名稱 (通常是 'users')
-        const q = query(
+        // 策略 1：只抓取前 50 名 (精確讀取 50 次)
+        const topQ = query(
           collection(db, USER_COLLECTION),
           orderBy(sortField, 'desc'),
           limit(50)
         );
 
-        const querySnapshot = await getDocs(q);
+        const topSnapshot = await getDocs(topQ);
         
-        if (querySnapshot.empty) {
+        if (topSnapshot.empty) {
           leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px;">目前沒有資料</div>';
-          return;
+        } else {
+          leaderboardList.innerHTML = ''; 
+          let rank = 1;
+          topSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const name = data.displayName || data.email?.split('@')[0] || '匿名玩家';
+            const score = data[sortField] || 0;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'leaderboard-item';
+            
+            // 如果在前 50 名內就直接標註
+            if (currentUser && docSnap.id === currentUser.uid) {
+              itemDiv.style.border = '1px solid var(--cyan)';
+              itemDiv.style.background = 'rgba(103, 232, 249, 0.15)';
+            }
+
+            itemDiv.innerHTML = `
+              <div class="rank-number">#${rank}</div>
+              <div class="player-name">${name}</div>
+              <div class="player-score">${score} ${unit}</div>
+            `;
+            leaderboardList.appendChild(itemDiv);
+            rank++;
+          });
         }
 
-        leaderboardList.innerHTML = ''; // 清空載入中文字
-        let rank = 1;
-        
-        querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          // 假設你的玩家名稱欄位叫做 displayName
-          const name = data.displayName || data.email?.split('@')[0] || '匿名玩家';
-          const score = type === 'coins' ? (data.coins || 0) : (data[sortField] || 0);
-          const unit = type === 'coins' ? '金幣' : '種';
+        // 策略 2：獨立計算登入者的排名 (讀取 1 次 + 伺服器計算 1 次)
+        if (currentUser && myRankContainer) {
+          const userRef = doc(db, USER_COLLECTION, currentUser.uid);
+          const userSnap = await getDoc(userRef);
 
-          const itemDiv = document.createElement('div');
-          itemDiv.className = 'leaderboard-item';
-          itemDiv.innerHTML = `
-            <div class="rank-number">#${rank}</div>
-            <div class="player-name">${name}</div>
-            <div class="player-score">${score} ${unit}</div>
-          `;
-          leaderboardList.appendChild(itemDiv);
-          rank++;
-        });
+          if (userSnap.exists()) {
+            const myData = userSnap.data();
+            const myScore = myData[sortField] || 0;
+
+            // 使用 getCountFromServer 進行高效聚合查詢
+            // 查詢「分數比我高」的玩家總數
+            const countQuery = query(
+              collection(db, USER_COLLECTION),
+              where(sortField, '>', myScore)
+            );
+            
+            const countSnapshot = await getCountFromServer(countQuery);
+            const myActualRank = countSnapshot.data().count + 1;
+
+            myRankNumber.textContent = `#${myActualRank}`;
+            myRankScore.textContent = `${myScore} ${unit}`;
+            myRankContainer.style.display = 'block';
+          }
+        }
 
       } catch (error) {
         console.error('讀取排行榜失敗:', error);
-        leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px; color: #ff6b6b;">讀取失敗，請稍後再試</div>';
+        leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px; color: #ff6b6b;">讀取失敗</div>';
       }
     }
     //================================
