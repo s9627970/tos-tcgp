@@ -426,6 +426,20 @@
       font-weight: 900;
       color: var(--gold);
     }
+    .shop-amount-input {
+      width: 70px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(0,0,0,0.16);
+      color: #fff;
+      padding: 10px;
+      font-size: 14px;
+      text-align: center;
+      outline: none;
+    }
+    .shop-amount-input:focus {
+      border-color: var(--cyan);
+    }
 
     .game-modal-card {
       width: min(980px, 100%);
@@ -972,8 +986,11 @@
           <div class="shop-item-desc">購買後可立即開啟一次。</div>
         </div>
         <div class="shop-item-action">
-          <div class="shop-price">10 金幣</div>
-          <button class="icon-btn primary" id="buyPackBtn" type="button">購買卡包</button>
+          <div class="shop-price" id="shopPriceDisplay">10 金幣</div>
+          <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
+            <input type="number" id="buyPackAmount" class="shop-amount-input" value="1" min="1" max="999" />
+            <button class="icon-btn primary" id="buyPackBtn" type="button" style="flex: 1;">購買卡包</button>
+          </div>
         </div>
       </div>
       <div id="shopStatus" class="status"></div>
@@ -1149,6 +1166,20 @@
     const shopModal = document.getElementById('shopModal');
     const shopBackdrop = document.getElementById('shopBackdrop');
     const closeShopBtn = document.getElementById('closeShopBtn');
+    const buyPackAmount = document.getElementById('buyPackAmount');
+    const shopPriceDisplay = document.getElementById('shopPriceDisplay');
+
+    // 讓輸入框改變時，上面的金幣價格會即時變化
+    buyPackAmount.addEventListener('input', () => {
+      let val = parseInt(buyPackAmount.value, 10);
+      if (isNaN(val) || val < 1) {
+        shopPriceDisplay.textContent = `10 金幣`;
+      } else {
+        shopPriceDisplay.textContent = `${val * 10} 金幣`;
+      }
+    });
+
+
     const buyPackBtn = document.getElementById('buyPackBtn');
     const shopStatus = document.getElementById('shopStatus');
     const earnModal = document.getElementById('earnModal');
@@ -1918,6 +1949,15 @@
         return;
       }
 
+      // 取得玩家輸入的數量
+      let amount = parseInt(buyPackAmount.value, 10);
+      if (isNaN(amount) || amount <= 0) {
+        showShop('請輸入正確的購買數量。');
+        return;
+      }
+
+      const totalCost = amount * 10;
+
       try {
         const ref = doc(db, USER_COLLECTION, currentUser.uid);
         await runTransaction(db, async (tx) => {
@@ -1926,17 +1966,22 @@
 
           const data = snap.data();
           const coins = data.coins || 0;
-          if (coins < 10) throw new Error('金幣不足，無法購買卡包。');
+          if (coins < totalCost) throw new Error(`金幣不足，無法購買 ${amount} 包卡包（需要 ${totalCost} 金幣）。`);
 
           tx.update(ref, {
-            coins: coins - 10,
-            packs: (data.packs || 0) + 1,
+            coins: coins - totalCost,
+            packs: (data.packs || 0) + amount,
             updatedAt: Date.now(),
             lastPurchasedAt: Date.now()
           });
         });
 
-        showShop('購買成功，已獲得 1 包卡包。');
+        showShop(`購買成功，已花費 ${totalCost} 金幣獲得 ${amount} 包卡包。`);
+        
+        // 購買成功後將數量重置為 1
+        buyPackAmount.value = 1;
+        shopPriceDisplay.textContent = '10 金幣';
+        
       } catch (err) {
         console.error(err);
         showShop(err?.message || '購買失敗，請稍後再試。');
