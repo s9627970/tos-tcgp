@@ -799,6 +799,64 @@
       margin-top: 14px;
     }
 
+
+    /* 排行榜頁籤 */
+    .leaderboard-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border);
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 16px;
+    }
+    .tab-btn.active {
+      background: var(--cyan);
+      color: #000;
+      border-color: var(--cyan);
+      font-weight: bold;
+    }
+
+    /* 排行榜列表 */
+    .leaderboard-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .leaderboard-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .rank-number {
+      font-weight: bold;
+      width: 30px;
+      color: var(--cyan);
+      font-size: 18px;
+    }
+    .player-name {
+      flex: 1;
+      margin-left: 10px;
+    }
+    .player-score {
+      font-weight: bold;
+      color: #ffd700; 
+    }
+
+
     /* =============================================
       RWD / 手機版響應式優化 Media Queries
       =============================================
@@ -903,6 +961,7 @@
           <button class="icon-btn" id="tradeHallBtn">交易大廳</button>
           <button class="icon-btn" id="shopBtn">商店</button>
           <button class="icon-btn" id="earnBtn">賺金幣</button>
+          <button class="icon-btn" id="leaderboardBtn" type="button" title="排行榜">排行榜</button>
           <button class="icon-btn" id="logoutBtn">登出</button>
         </div>
       </div>
@@ -996,6 +1055,28 @@
       <div id="shopStatus" class="status"></div>
     </div>
   </div>
+
+
+  <div id="leaderboardModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">排行榜</h2>
+        <button class="close-btn" id="closeLeaderboardBtn">&times;</button>
+      </div>
+      
+      <!-- 頁籤按鈕 -->
+      <div class="leaderboard-tabs">
+        <button class="tab-btn active" id="tabCoins">大富翁</button>
+        <button class="tab-btn" id="tabCollection">蒐集王者</button>
+      </div>
+
+      <!-- 列表容器 -->
+      <div class="leaderboard-list" id="leaderboardList">
+        <div class="loading-text" style="text-align: center; padding: 20px;">載入中...</div>
+      </div>
+    </div>
+  </div>
+
   
   <div id="earnModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" id="earnBackdrop"></div>
@@ -1112,7 +1193,10 @@
       addDoc,
       deleteDoc,
       onSnapshot,
-      runTransaction
+      runTransaction,
+      getDocs,
+      limit,
+      updateDoc
     } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js';
     import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/12.12.1/firebase-functions.js';
 
@@ -1218,6 +1302,99 @@
     const tradeConfirmText = document.getElementById('tradeConfirmText');
     const filterBtns = Array.from(document.querySelectorAll('.filter-btn'));
     const backpackSearch = document.getElementById('backpackSearch');
+
+
+    //排行榜
+    // 綁定 DOM 元素
+    const leaderboardBtn = document.getElementById('leaderboardBtn');
+    const leaderboardModal = document.getElementById('leaderboardModal');
+    const closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
+    const tabCoins = document.getElementById('tabCoins');
+    const tabCollection = document.getElementById('tabCollection');
+    const leaderboardList = document.getElementById('leaderboardList');
+
+    let currentLeaderboardType = 'coins'; // 預設顯示大富翁 (金幣)
+
+    // 打開排行榜
+    leaderboardBtn.addEventListener('click', () => {
+      leaderboardModal.classList.remove('hidden');
+      loadLeaderboard(currentLeaderboardType);
+    });
+
+    // 關閉排行榜
+    closeLeaderboardBtn.addEventListener('click', () => {
+      leaderboardModal.classList.add('hidden');
+    });
+
+    // 切換到「大富翁」
+    tabCoins.addEventListener('click', () => {
+      if (currentLeaderboardType === 'coins') return;
+      currentLeaderboardType = 'coins';
+      tabCoins.classList.add('active');
+      tabCollection.classList.remove('active');
+      loadLeaderboard('coins');
+    });
+
+    // 切換到「蒐集王者」
+    tabCollection.addEventListener('click', () => {
+      if (currentLeaderboardType === 'collection') return;
+      currentLeaderboardType = 'collection';
+      tabCollection.classList.add('active');
+      tabCoins.classList.remove('active');
+      loadLeaderboard('collection');
+    });
+
+    // 讀取排行榜資料並渲染
+    async function loadLeaderboard(type) {
+      leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px;">載入中...</div>';
+      
+      try {
+        // ⚠️ 關鍵設定：根據 type 決定要用哪個資料庫欄位排序
+        // 假設金幣欄位叫 'coins'，圖鑑總數欄位叫 'collectionCount'
+        const sortField = type === 'coins' ? 'coins' : 'collectionCount'; 
+        
+        // 建立 Firebase 查詢 (抓前 50 名)
+        // 記得將 USER_COLLECTION 換成你的使用者集合名稱 (通常是 'users')
+        const q = query(
+          collection(db, USER_COLLECTION),
+          orderBy(sortField, 'desc'),
+          limit(50)
+        );
+
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+          leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px;">目前沒有資料</div>';
+          return;
+        }
+
+        leaderboardList.innerHTML = ''; // 清空載入中文字
+        let rank = 1;
+        
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          // 假設你的玩家名稱欄位叫做 displayName
+          const name = data.displayName || data.email?.split('@')[0] || '匿名玩家';
+          const score = type === 'coins' ? (data.coins || 0) : (data[sortField] || 0);
+          const unit = type === 'coins' ? '金幣' : '種';
+
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'leaderboard-item';
+          itemDiv.innerHTML = `
+            <div class="rank-number">#${rank}</div>
+            <div class="player-name">${name}</div>
+            <div class="player-score">${score} ${unit}</div>
+          `;
+          leaderboardList.appendChild(itemDiv);
+          rank++;
+        });
+
+      } catch (error) {
+        console.error('讀取排行榜失敗:', error);
+        leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px; color: #ff6b6b;">讀取失敗，請稍後再試</div>';
+      }
+    }
+    //================================
 
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -1770,6 +1947,26 @@
       if (gameCoinText) gameCoinText.textContent = String(userData.coins || 0);
       if (tradeModal && !tradeModal.classList.contains('hidden')) {
         tradeCoinText.textContent = String(userData.coins || 0);
+      }
+    }
+
+    // 計算並存入 collectionCount 到 Firebase
+    async function syncCollectionCountToFirebase() {
+      if (!currentUser) return;
+
+      // 使用原本程式碼中既有的 getOwnedCount() 函式計算不重複卡種數量
+      const count = getOwnedCount();
+      
+      const userRef = doc(db, USER_COLLECTION, currentUser.uid);
+      
+      try {
+        await updateDoc(userRef, {
+          collectionCount: count,
+          updatedAt: Date.now()
+        });
+        console.log("圖鑑數量已更新:", count);
+      } catch (err) {
+        console.error("更新圖鑑數量失敗:", err);
       }
     }
 
@@ -2706,11 +2903,12 @@
     earnBackdrop.addEventListener('click', hideGame);
     openPackBtn.addEventListener('click', openPackAnim);
     pack.addEventListener('click', openPackAnim);
-    toBackpackBtn.addEventListener('click', () => {
+    toBackpackBtn.addEventListener('click', async () => {
       hideShop();
       hideTradeModal();
       showView('backpack');
       renderBackpackView();
+      await syncCollectionCountToFirebase();
     });
     toOpeningBtn.addEventListener('click', () => {
       hideShop();
