@@ -1238,6 +1238,7 @@
         <div>
           <h3 id="nicknameTitle">更改暱稱</h3>
           <p>設定一個響亮的暱稱，這會顯示在排行榜與畫面上喔！</p>
+          <p>請勿將不雅詞彙、仇視言論設為暱稱。</p>
         </div>
         <button class="icon-btn modal-close" id="closeNicknameBtn" type="button">關閉</button>
       </div>
@@ -1775,7 +1776,7 @@
         item.innerHTML = `
           <div class="trade-card-head">
             <div class="trade-owner">
-              <strong>${req.email || '匿名玩家'}</strong>
+              <strong>${req.displayName || req.email || '匿名玩家'}</strong>
               <span>${formatTradeDate(req.createdAt)}</span>
             </div>
             <div class="trade-badge ${isMine ? 'mine' : ''}">${isMine ? '我的請求' : '點擊即可交易'}</div>
@@ -1934,6 +1935,7 @@
           uid: currentUser.uid,
           ownerUid: currentUser.uid,
           email: currentUser.email || '',
+          displayName: userData.displayName || '',
           giveCardId: giveCard.id,
           giveCardName: giveCard.name,
           wantCardId: wantCard.id,
@@ -3182,7 +3184,26 @@
       showGame('');
     });
     tradeHallBtn.addEventListener('click', openTradeHall);
-    addTradeBtn.addEventListener('click', openTradeEditor);
+    addTradeBtn.addEventListener('click', () => {
+      if (!currentUser) {
+        showNotice('提示', '請先登入後再進行操作。', true);
+        return;
+      }
+
+      // 篩選出狀態為 open 的請求
+      const openRequests = tradeRequests.filter(req => (req.status || 'open') === 'open');
+      // 計算屬於自己的請求數量
+      const myTradeCount = openRequests.filter(req => (req.ownerUid || req.uid) === currentUser.uid).length;
+
+      if (myTradeCount >= 2) {
+        // 如果已經有 2 個或以上，跳出提示並阻斷開啟視窗
+        showNotice('達到上限', '每個人最多只能同時擁有兩個交易請求喔！', true);
+        return;
+      }
+
+      // 若未達上限，正常開啟交易視窗
+      openTradeEditor();
+    });
     closeTradeBtn.addEventListener('click', hideTradeModal);
     tradeBackdrop.addEventListener('click', hideTradeModal);
     tradeGiveSearch.addEventListener('input', (e) => {
