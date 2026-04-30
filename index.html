@@ -978,6 +978,7 @@
           <button class="icon-btn" id="shopBtn">商店</button>
           <button class="icon-btn" id="earnBtn">賺金幣</button>
           <button class="icon-btn" id="leaderboardBtn" type="button" title="排行榜">排行榜</button>
+          <button class="icon-btn" id="changeNameBtn">更改暱稱</button>
           <button class="icon-btn" id="logoutBtn">登出</button>
         </div>
       </div>
@@ -1229,6 +1230,26 @@
     </div>
   </div>
 
+  <!-- 更改暱稱視窗 -->
+  <div id="nicknameModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="nicknameBackdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="nicknameTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="nicknameTitle">更改暱稱</h3>
+          <p>設定一個響亮的暱稱，這會顯示在排行榜與畫面上喔！</p>
+        </div>
+        <button class="icon-btn modal-close" id="closeNicknameBtn" type="button">關閉</button>
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;">
+        <input type="text" id="newNicknameInput" class="trade-search" placeholder="輸入新暱稱 (最多 15 字)" maxlength="15" />
+        <button class="icon-btn primary" id="saveNicknameBtn" type="button">儲存更改</button>
+        <div id="nicknameStatus" class="status"></div>
+      </div>
+    </div>
+  </div>
+
   </div>
 
   <script type="module">
@@ -1312,6 +1333,13 @@
     const closeShopBtn = document.getElementById('closeShopBtn');
     const buyPackAmount = document.getElementById('buyPackAmount');
     const shopPriceDisplay = document.getElementById('shopPriceDisplay');
+
+    const changeNameBtn = document.getElementById('changeNameBtn');
+    const nicknameModal = document.getElementById('nicknameModal');
+    const closeNicknameBtn = document.getElementById('closeNicknameBtn');
+    const newNicknameInput = document.getElementById('newNicknameInput');
+    const saveNicknameBtn = document.getElementById('saveNicknameBtn');
+    const nicknameStatus = document.getElementById('nicknameStatus');
 
     // 讓輸入框改變時，上面的金幣價格會即時變化
     buyPackAmount.addEventListener('input', () => {
@@ -1542,7 +1570,8 @@
       coins: 0,
       ownedCounts: {},
       lastRewardKey: '',
-      pityCounter: 0
+      pityCounter: 0,
+      displayName: ''
     };
     let tradeUnsub = null;
     let tradeRequests = [];
@@ -1998,7 +2027,9 @@
     function renderTopStats() {
       packCountText.textContent = String(userData.packs || 0);
       coinCountText.textContent = String(userData.coins || 0);
-      userEmailText.textContent = currentUser?.email || '-';
+      // 優先顯示暱稱，沒有暱稱才顯示 email 前半段
+      const defaultName = currentUser?.email ? currentUser.email.split('@')[0] : '-';
+      userEmailText.textContent = userData.displayName || defaultName;
     }
 
     function renderResults(cards) {
@@ -2205,7 +2236,8 @@
           coins: data.coins || 0,
           ownedCounts: ensureCardCountMap(data.ownedCounts || {}),
           lastRewardKey: data.lastRewardKey || '',
-          pityCounter: data.pityCounter || 0
+          pityCounter: data.pityCounter || 0,
+          displayName: data.displayName || ''
         };
         syncUiFromUserData();
       }, (err) => {
@@ -3217,6 +3249,65 @@
         renderBackpackView();
       });
     });
+
+
+    // ===== 暱稱更改事件 =====
+    // 打開更改暱稱視窗
+    changeNameBtn.addEventListener('click', () => {
+      nicknameModal.classList.remove('hidden');
+      newNicknameInput.value = userData.displayName || ''; // 帶入目前的暱稱
+      nicknameStatus.textContent = '';
+      nicknameStatus.className = 'status';
+    });
+
+    // 關閉更改暱稱視窗
+    closeNicknameBtn.addEventListener('click', () => {
+      nicknameModal.classList.add('hidden');
+    });
+
+    // 儲存暱稱至 Firebase
+    saveNicknameBtn.addEventListener('click', async () => {
+      const newName = newNicknameInput.value.trim();
+      
+      if (!newName) {
+        nicknameStatus.textContent = '暱稱不能為空喔！';
+        nicknameStatus.className = 'status error';
+        return;
+      }
+      
+      if (!currentUser) return;
+
+      try {
+        saveNicknameBtn.disabled = true;
+        saveNicknameBtn.textContent = '儲存中...';
+        nicknameStatus.textContent = '';
+        
+        // 更新 Firestore 上的 displayName
+        const userRef = doc(db, USER_COLLECTION, currentUser.uid);
+        await updateDoc(userRef, {
+          displayName: newName,
+          updatedAt: Date.now()
+        });
+
+        // 提示成功，並稍微延遲後自動關閉視窗
+        nicknameStatus.textContent = '暱稱更改成功！';
+        nicknameStatus.className = 'status ok';
+        
+        setTimeout(() => {
+          nicknameModal.classList.add('hidden');
+          saveNicknameBtn.disabled = false;
+          saveNicknameBtn.textContent = '儲存更改';
+        }, 1000);
+
+      } catch (err) {
+        console.error("更改暱稱失敗:", err);
+        nicknameStatus.textContent = '儲存失敗，請確認網路或稍後再試。';
+        nicknameStatus.className = 'status error';
+        saveNicknameBtn.disabled = false;
+        saveNicknameBtn.textContent = '儲存更改';
+      }
+    });
+    // ==========
 
     // 背包搜尋框事件
     backpackSearch.addEventListener('input', (e) => {
