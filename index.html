@@ -1433,11 +1433,11 @@
           topData = leaderboardCache[type].data;
         } else {
           console.log(`從 Firestore 讀取排行榜 (${type})`);
-          // 抓取前 50 名
+          // 抓取前 20 名
           const topQ = query(
             collection(db, USER_COLLECTION),
             orderBy(sortField, 'desc'),
-            limit(50)
+            limit(20)
           );
           const topSnapshot = await getDocs(topQ);
           
@@ -1477,7 +1477,7 @@
               displayRank = 1;
             }
 
-            if (counter <= 50) {
+            if (counter <= 20) {
               const itemDiv = document.createElement('div');
               itemDiv.className = 'leaderboard-item';
               
