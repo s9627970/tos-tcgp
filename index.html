@@ -1418,7 +1418,7 @@
         const sortField = type === 'coins' ? 'coins' : 'collectionCount'; 
         const unit = type === 'coins' ? '金幣' : '種';
         
-        // 策略 1：只抓取前 50 名 (精確讀取 50 次)
+        // 1. 抓取前 50 名
         const topQ = query(
           collection(db, USER_COLLECTION),
           orderBy(sortField, 'desc'),
@@ -1431,32 +1431,45 @@
           leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px;">目前沒有資料</div>';
         } else {
           leaderboardList.innerHTML = ''; 
-          let rank = 1;
+          
+          let displayRank = 1;      // 顯示在畫面上的排名
+          let actualCounter = 1;    // 實際處理到的第幾個人
+          let lastScore = null;     // 記錄上一個人的分數
+
           topSnapshot.forEach((docSnap) => {
             const data = docSnap.data();
             const name = data.displayName || data.email?.split('@')[0] || '匿名玩家';
             const score = data[sortField] || 0;
 
+            // --- 並列排名邏輯 ---
+            if (lastScore !== null && score < lastScore) {
+              // 當前分數比上一個人低，更新顯示排名為目前的總計人數
+              displayRank = actualCounter;
+            }
+            // 如果 score === lastScore，則 displayRank 不變，達成「並列」效果
+            // ------------------
+
             const itemDiv = document.createElement('div');
             itemDiv.className = 'leaderboard-item';
             
-            // 如果在前 50 名內就直接標註
             if (currentUser && docSnap.id === currentUser.uid) {
               itemDiv.style.border = '1px solid var(--cyan)';
               itemDiv.style.background = 'rgba(103, 232, 249, 0.15)';
             }
 
             itemDiv.innerHTML = `
-              <div class="rank-number">#${rank}</div>
+              <div class="rank-number">#${displayRank}</div>
               <div class="player-name">${name}</div>
               <div class="player-score">${score} ${unit}</div>
             `;
             leaderboardList.appendChild(itemDiv);
-            rank++;
+
+            lastScore = score;    // 更新上一次分數
+            actualCounter++;       // 總計人數加 1
           });
         }
 
-        // 策略 2：獨立計算登入者的排名 (讀取 1 次 + 伺服器計算 1 次)
+        // 2. 抓取個人排名（邏輯維持不變，因為 > myScore 本身就是並列排名的精髓）
         if (currentUser && myRankContainer) {
           const userRef = doc(db, USER_COLLECTION, currentUser.uid);
           const userSnap = await getDoc(userRef);
@@ -1465,8 +1478,7 @@
             const myData = userSnap.data();
             const myScore = myData[sortField] || 0;
 
-            // 使用 getCountFromServer 進行高效聚合查詢
-            // 查詢「分數比我高」的玩家總數
+            // 查詢分數「嚴格大於」我的人數
             const countQuery = query(
               collection(db, USER_COLLECTION),
               where(sortField, '>', myScore)
@@ -1483,7 +1495,7 @@
 
       } catch (error) {
         console.error('讀取排行榜失敗:', error);
-        leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px; color: #ff6b6b;">讀取失敗</div>';
+        leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px;">讀取失敗</div>';
       }
     }
     //================================
