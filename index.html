@@ -2111,7 +2111,8 @@
           packs: data.packs || 0,
           coins: data.coins || 0,
           ownedCounts: ensureCardCountMap(data.ownedCounts || {}),
-          lastRewardKey: data.lastRewardKey || ''
+          lastRewardKey: data.lastRewardKey || '',
+          pityCounter: data.pityCounter || 0
         };
         syncUiFromUserData();
       }, (err) => {
@@ -3078,11 +3079,10 @@
     closeEarnBtn.addEventListener('click', hideGame);
     earnBackdrop.addEventListener('click', hideGame);
     openPackBtn.addEventListener('click', () => {
-      if ((userData.pityCounter || 0) >= 20) {
-        // 如果滿 20 包了，點擊按鈕不扣卡包，而是直接打開自選視窗
+      // 判斷如果保底已達成，則改為打開自選視窗
+      if (userData.pityCounter >= 20) {
         showPityModal();
       } else {
-        // 否則正常開卡包
         openPackAnim();
       }
     });
