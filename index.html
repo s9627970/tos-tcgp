@@ -120,6 +120,12 @@
     }
     .icon-btn:hover { transform: translateY(-1px); background: rgba(255,255,255,0.1); }
     .icon-btn.primary { background: linear-gradient(90deg, var(--cyan), var(--blue), var(--indigo)); border-color: transparent; }
+    .icon-btn.gold-btn {
+      background: linear-gradient(90deg, #fbbf24, #d97706, #b45309);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+    }
 
     .auth-shell {
       min-height: calc(100vh - 90px);
@@ -983,6 +989,7 @@
           <div class="open-btn-row">
             <button class="icon-btn primary" id="openPackBtn">開啟卡包</button>
           </div>
+          <div id="pityProgressText" style="margin-top: 12px; text-align: center; font-size: 14px; color: var(--gold); font-weight: bold;">距離保底自選還差 20 包</div>
 
           <div style="width:100%;">
             <div class="results-title">抽到的卡片</div>
@@ -1172,6 +1179,35 @@
       <h3 id="notice-title" style="margin-top: 0; font-size: 1.5rem;">提示</h3>
       <p id="notice-message" style="font-size: 1.1rem; line-height: 1.6; margin: 20px 0; color: var(--text);"></p>
       <button class="icon-btn primary" onclick="closeNotice()" style="width: 100%;">確定</button>
+    </div>
+  </div>
+
+  <!-- 保底自選視窗 -->
+  <div id="pityModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="pityBackdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" style="width: min(800px, 100%); max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-head">
+        <div>
+          <h3 style="margin: 0; font-size: 24px; font-weight: 900; color: var(--gold);">✨ 保底自選 ✨</h3>
+          <p style="margin: 8px 0 0; color: var(--muted); line-height: 1.6;">已開啟 20 包！請選擇一張您想要的卡片。</p>
+        </div>
+        <button class="icon-btn modal-close" id="closePityBtn" type="button">稍後選擇</button>
+      </div>
+
+      <div class="backpack-head" style="flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div class="filter-row" id="pityFilterRow">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="unowned">尚未擁有</button>
+            <button class="filter-btn" data-filter="owned">已擁有</button>
+          </div>
+        </div>
+        <input id="pitySearch" class="trade-search" type="text" placeholder="搜尋卡號或名稱..." />
+      </div>
+
+      <!-- 這裡共用背包的 CSS class 來達成一排五張與灰階效果 -->
+      <div id="pityGrid" class="backpack-grid" style="overflow-y: auto; padding-right: 4px; max-height: 50vh;"></div>
+      <div id="pityEmpty" class="empty-state" style="display:none;">沒有符合條件的卡片</div>
     </div>
   </div>
 
@@ -1412,7 +1448,8 @@
       packs: 0,
       coins: 0,
       ownedCounts: {},
-      lastRewardKey: ''
+      lastRewardKey: '',
+      pityCounter: 0
     };
     let tradeUnsub = null;
     let tradeRequests = [];
@@ -1422,6 +1459,8 @@
     let tradeLeftSearch = '';
     let tradeRightSearch = '';
     let isCardPoolLoaded = false; 
+    let pityFilter = 'all';
+    let pitySearchQuery = '';
 
     function wait(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
@@ -1951,6 +1990,27 @@
       if (tradeModal && !tradeModal.classList.contains('hidden')) {
         tradeCoinText.textContent = String(userData.coins || 0);
       }
+
+      // --- 新增：保底 UI 更新邏輯 ---
+      const pityCounter = userData.pityCounter || 0;
+      const remaining = Math.max(0, 20 - pityCounter);
+      const pityTextEl = document.getElementById('pityProgressText');
+
+      if (pityCounter >= 20) {
+        if (pityTextEl) pityTextEl.textContent = '🎉 保底已達成！請點擊上方按鈕選擇卡片';
+        if (openPackBtn) {
+          openPackBtn.textContent = '領取保底自選';
+          openPackBtn.classList.add('gold-btn');
+          openPackBtn.classList.remove('primary');
+        }
+      } else {
+        if (pityTextEl) pityTextEl.textContent = `距離保底自選還差 ${remaining} 包`;
+        if (openPackBtn) {
+          openPackBtn.textContent = '開啟卡包';
+          openPackBtn.classList.remove('gold-btn');
+          openPackBtn.classList.add('primary');
+        }
+      }
     }
 
     // 計算並存入 collectionCount 到 Firebase
@@ -2102,7 +2162,8 @@
             ownedCounts,
             updatedAt: Date.now(),
             lastOpenedAt: Date.now(),
-            lastOpenedGain: 0
+            lastOpenedGain: 0,
+            pityCounter: (data.pityCounter || 0) + 1
           });
         });
       } catch (err) {
@@ -2125,6 +2186,13 @@
       tearGlow.classList.remove('active');
       opening = false;
       showStatus('已成功開啟卡包。', 'ok');
+
+      // 如果開完這包剛好滿 20 包，自動彈出自選視窗
+      if ((userData.pityCounter || 0) >= 20) {
+        setTimeout(() => {
+          showPityModal();
+        }, 800); // 稍微延遲一下，讓玩家先看完抽到的 5 張卡
+      }
     }
 
     function resetOpeningView() {
@@ -2233,6 +2301,111 @@
       ownedCountText2.textContent = String(getOwnedCount());
       totalCountText2.textContent = String(cardPool.length);
     }
+
+    // 顯示與關閉保底視窗
+    function showPityModal() {
+      const pityModal = document.getElementById('pityModal');
+      pityModal.classList.remove('hidden');
+      renderPityGrid();
+    }
+
+    function closePityModal() {
+      document.getElementById('pityModal').classList.add('hidden');
+    }
+
+    // 取得篩選後的卡片清單（邏輯與背包相同）
+    function getPityFilteredCards() {
+      let filtered = cardPool;
+      if (pityFilter === 'owned') {
+        filtered = filtered.filter(card => isOwned(card));
+      } else if (pityFilter === 'unowned') {
+        filtered = filtered.filter(card => !isOwned(card));
+      }
+
+      const query = normalizeText(pitySearchQuery);
+      if (query) {
+        filtered = filtered.filter(card => 
+          normalizeText(card.id).includes(query) || 
+          normalizeText(card.name).includes(query)
+        );
+      }
+      return filtered;
+    }
+
+    // 渲染保底選擇畫面
+    function renderPityGrid() {
+      const grid = document.getElementById('pityGrid');
+      const empty = document.getElementById('pityEmpty');
+      grid.innerHTML = '';
+      
+      const filtered = getPityFilteredCards();
+      empty.style.display = filtered.length ? 'none' : 'block';
+
+      filtered.forEach(card => {
+        const owned = isOwned(card);
+        const count = userData.ownedCounts?.[card.id] || 0;
+        const item = document.createElement('div');
+        item.className = 'bp-item';
+        item.style.cursor = 'pointer'; // 讓游標變成點擊樣式
+        
+        // 點擊後跳出確認視窗
+        item.addEventListener('click', () => confirmPityChoice(card));
+
+        // 共用背包的 bp-card 與 unowned 類別，直接實現擁有彩圖/未擁有灰階
+        item.innerHTML = `
+          <div class="bp-card ${owned ? '' : 'unowned'}" style="transition: transform 0.2s; border: 2px solid transparent;">
+            <img src="${cardImgUrl(card.id)}" alt="${card.name}" loading="lazy" onerror="this.style.opacity=0.25;" />
+            <div class="bp-badge">${owned ? `已擁有 x${count}` : '未擁有'}</div>
+          </div>
+          <div class="bp-no">No. ${card.id}</div>
+          <div class="bp-name">${card.name}</div>
+        `;
+        
+        // 滑鼠 hover 時的小特效
+        item.addEventListener('mouseenter', () => item.querySelector('.bp-card').style.borderColor = 'var(--cyan)');
+        item.addEventListener('mouseleave', () => item.querySelector('.bp-card').style.borderColor = 'transparent');
+
+        grid.appendChild(item);
+      });
+    }
+
+    // 確認選擇並存入 Firebase
+    async function confirmPityChoice(card) {
+      if (!confirm(`確定要選擇「${card.id} ${card.name}」作為保底獎勵嗎？`)) return;
+      
+      try {
+        const ref = doc(db, USER_COLLECTION, currentUser.uid);
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref);
+          if (!snap.exists()) throw new Error('使用者資料不存在');
+          const data = snap.data();
+          
+          if ((data.pityCounter || 0) < 20) {
+            throw new Error('保底條件尚未達成！');
+          }
+
+          const ownedCounts = ensureCardCountMap(data.ownedCounts || {});
+          ownedCounts[card.id] = (ownedCounts[card.id] || 0) + 1;
+
+          // 給予卡片並扣除 20 點保底值 (保留溢出的進度)
+          tx.update(ref, {
+            ownedCounts,
+            pityCounter: (data.pityCounter || 0) - 20,
+            updatedAt: Date.now()
+          });
+        });
+        
+        showNotice('🎉 保底領取成功', `恭喜您獲得：${card.id} ${card.name}`);
+        closePityModal();
+        syncUiFromUserData(); // 重新刷新畫面與背包
+        
+      } catch (err) {
+        console.error(err);
+        showNotice('領取失敗', err.message, true);
+      }
+    }
+
+
 
     const mergeGame = (() => {
       const GRID_SIZE = 6;
@@ -2904,7 +3077,32 @@
     buyPackBtn.addEventListener('click', buyPackFromShop);
     closeEarnBtn.addEventListener('click', hideGame);
     earnBackdrop.addEventListener('click', hideGame);
-    openPackBtn.addEventListener('click', openPackAnim);
+    openPackBtn.addEventListener('click', () => {
+      if ((userData.pityCounter || 0) >= 20) {
+        // 如果滿 20 包了，點擊按鈕不扣卡包，而是直接打開自選視窗
+        showPityModal();
+      } else {
+        // 否則正常開卡包
+        openPackAnim();
+      }
+    });
+    // 保底視窗 UI 綁定
+    document.getElementById('closePityBtn')?.addEventListener('click', closePityModal);
+    document.getElementById('pityBackdrop')?.addEventListener('click', closePityModal);
+
+    document.getElementById('pitySearch')?.addEventListener('input', (e) => {
+      pitySearchQuery = e.target.value;
+      renderPityGrid();
+    });
+
+    document.querySelectorAll('#pityFilterRow .filter-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#pityFilterRow .filter-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        pityFilter = e.target.getAttribute('data-filter');
+        renderPityGrid();
+      });
+    });
     pack.addEventListener('click', openPackAnim);
     toBackpackBtn.addEventListener('click', async () => {
       hideShop();
