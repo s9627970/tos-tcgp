@@ -1375,6 +1375,13 @@
 
     let currentLeaderboardType = 'coins'; // 預設顯示大富翁 (金幣)
 
+    // 排行榜快取設定
+    const leaderboardCache = {
+      coins: { data: null, lastFetch: 0 },
+      collection: { data: null, lastFetch: 0 }
+    };
+    const CACHE_TTL = 5 * 60 * 1000; // 快取存活時間：5分鐘 (可依需求自行調整)
+
     // 打開排行榜
     leaderboardBtn.addEventListener('click', () => {
       leaderboardModal.classList.remove('hidden');
@@ -1417,17 +1424,36 @@
       try {
         const sortField = type === 'coins' ? 'coins' : 'collectionCount'; 
         const unit = type === 'coins' ? '金幣' : '種';
-        
-        // 1. 抓取前 50 名
-        const topQ = query(
-          collection(db, USER_COLLECTION),
-          orderBy(sortField, 'desc'),
-          limit(50)
-        );
+        const now = Date.now();
+        let topData = [];
 
-        const topSnapshot = await getDocs(topQ);
-        
-        if (topSnapshot.empty) {
+        // 1. 判斷是否使用快取
+        if (leaderboardCache[type].data && (now - leaderboardCache[type].lastFetch < CACHE_TTL)) {
+          console.log(`使用排行榜快取 (${type})`);
+          topData = leaderboardCache[type].data;
+        } else {
+          console.log(`從 Firestore 讀取排行榜 (${type})`);
+          // 抓取前 50 名
+          const topQ = query(
+            collection(db, USER_COLLECTION),
+            orderBy(sortField, 'desc'),
+            limit(50)
+          );
+          const topSnapshot = await getDocs(topQ);
+          
+          // 將 DocumentSnapshot 轉換為純物件陣列，方便快取
+          topData = topSnapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...docSnap.data()
+          }));
+
+          // 更新快取
+          leaderboardCache[type].data = topData;
+          leaderboardCache[type].lastFetch = now;
+        }
+
+        // 2. 渲染排行榜清單
+        if (topData.length === 0) {
           leaderboardList.innerHTML = '<div style="text-align:center; padding: 20px;">目前沒有資料</div>';
         } else {
           leaderboardList.innerHTML = ''; 
@@ -1436,34 +1462,26 @@
           let lastScore = null;     // 記錄上一個人的分數
           let counter = 0;          // 迴圈跑到了第幾個人 (0-based)
 
-          querySnapshot.forEach((docSnap) => {
-            counter++; // 進入迴圈先累加計數
+          topData.forEach((data) => {
+            counter++; 
             
-            const data = docSnap.data();
             const name = data.displayName || data.email?.split('@')[0] || '匿名玩家';
-            
-            // 強制轉換為數字，避免 Firestore 傳回字串導致比較失敗
             const score = Number(data[sortField] || 0);
 
-            // --- 關鍵並列排名邏輯 ---
+            // 並列排名邏輯
             if (lastScore !== null) {
               if (score < lastScore) {
-                // 分數比前一個人低，排名跳到當前的總人數位置
                 displayRank = counter;
               } 
-              // 如果 score === lastScore，則 displayRank 保持不變，達成並列
             } else {
-              // 第一筆資料，排名一定是 1
               displayRank = 1;
             }
-            // ----------------------
 
-            // 只渲染前 50 名到 HTML
             if (counter <= 50) {
               const itemDiv = document.createElement('div');
               itemDiv.className = 'leaderboard-item';
               
-              if (currentUser && docSnap.id === currentUser.uid) {
+              if (currentUser && data.id === currentUser.uid) {
                 itemDiv.style.border = '1px solid var(--cyan)';
                 itemDiv.style.background = 'rgba(103, 232, 249, 0.15)';
               }
@@ -1475,12 +1493,11 @@
               `;
               leaderboardList.appendChild(itemDiv);
             }
-
-            lastScore = score; // 更新最後一次分數供下一次迴圈比對
+            lastScore = score; 
           });
         }
 
-        // 2. 抓取個人排名（邏輯維持不變，因為 > myScore 本身就是並列排名的精髓）
+        // 3. 抓取個人排名 (不快取，因為個人分數可能隨時變動)
         if (currentUser && myRankContainer) {
           const userRef = doc(db, USER_COLLECTION, currentUser.uid);
           const userSnap = await getDoc(userRef);
